@@ -121,6 +121,9 @@ namespace Netsphere.Server.Game
                         .Configure<BattleRoyalOptions>(context.Configuration
                             .GetSection(nameof(AppOptions.Game))
                             .GetSection(nameof(AppOptions.Game.BattleRoyal)))
+                        .Configure<CaptainOptions>(context.Configuration
+                            .GetSection(nameof(AppOptions.Game))
+                            .GetSection(nameof(AppOptions.Game.Captain)))
                         .Configure<IdGeneratorOptions>(x => x.Id = 0)
                         .AddSingleton<DatabaseService>()
                         .AddDbContext<AuthContext>(x => x.UseMySql(appOptions.Database.ConnectionStrings.Auth))
@@ -150,6 +153,7 @@ namespace Netsphere.Server.Game
                         .AddTransient<Deathmatch>()
                         .AddTransient<Touchdown>()
                         .AddTransient<BattleRoyal>()
+                        .AddTransient<Captain>()
                         .AddTransient<Practice>()
                         .AddTransient<Captain>()
                         .AddSingleton<EquipValidator>()

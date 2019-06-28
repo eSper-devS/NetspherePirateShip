@@ -15,6 +15,7 @@
         public DeathmatchOptions Deathmatch { get; set; }
         public TouchdownOptions Touchdown { get; set; }
         public BattleRoyalOptions BattleRoyal { get; set; }
+        public CaptainOptions Captain { get; set; }
     }
 
     public class DeathmatchOptions
