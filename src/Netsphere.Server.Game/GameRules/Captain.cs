@@ -65,6 +65,12 @@ namespace Netsphere.Server.Game.GameRules
             captain.TeamManager[winnerTeam].Score++;
             captain.Room.Broadcast(new CaptainSubRoundWinAckMessage(3, winnerTeam));
 
+            if ((int)roundCount >= captain.Room.Options.TimeLimit.Minutes)
+            {
+                captain.StateMachine.StartResult();
+                return;
+            }
+
             if (captain.StateMachine.GameState != GameState.Playing)
                 return;
 
@@ -221,6 +227,9 @@ namespace Netsphere.Server.Game.GameRules
 
             target.Score.Deaths++;
             SendScoreKill(killer, assist, target, attackAttribute);
+
+            if (_captains.All(x => x.Value != TeamId.Alpha) || _captains.All(x => x.Value != TeamId.Beta))
+                RoundEnd(this, _roundCount);
         }
 
         protected internal override void OnScoreSuicide(Player plr)
@@ -230,6 +239,8 @@ namespace Netsphere.Server.Game.GameRules
             SendScoreSuicide(plr);
 
             _captains.TryRemove(plr, out _);
+            if (_captains.All(x => x.Value != TeamId.Alpha) || _captains.All(x => x.Value != TeamId.Beta))
+                RoundEnd(this, _roundCount);
         }
 
         protected static CaptainPlayerScore GetScore(ScoreContext plr)
