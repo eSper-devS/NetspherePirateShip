@@ -151,6 +151,7 @@ namespace Netsphere.Server.Game
                         .AddTransient<Touchdown>()
                         .AddTransient<BattleRoyal>()
                         .AddTransient<Practice>()
+                        .AddTransient<Captain>()
                         .AddSingleton<EquipValidator>()
                         .AddCommands(typeof(Program).Assembly)
                         .AddService<IdGeneratorService>()

@@ -1073,6 +1073,11 @@ namespace Netsphere.Network.Message.GameRule
         {
             Players = Array.Empty<CaptainLifeDto>();
         }
+
+        public CaptainRoundCaptainLifeInfoAckMessage(CaptainLifeDto[] players)
+        {
+            Players = players;
+        }
     }
 
     [BlubContract]
@@ -1082,17 +1087,38 @@ namespace Netsphere.Network.Message.GameRule
         public int Unk1 { get; set; }
 
         [BlubMember(1)]
-        public byte Unk2 { get; set; }
+        [BlubSerializer(typeof(EnumSerializer), typeof(byte))]
+        public TeamId Team { get; set; }
+
+        public CaptainSubRoundWinAckMessage()
+        {
+        }
+
+        public CaptainSubRoundWinAckMessage(int unk1, TeamId team)
+        {
+            Unk1 = unk1;
+            Team = team;
+        }
     }
 
     [BlubContract]
     public class CaptainCurrentRoundInfoAckMessage : IGameRuleMessage
     {
         [BlubMember(0)]
-        public int Unk1 { get; set; }
+        public uint Unk1 { get; set; }
 
         [BlubMember(1)]
-        public int Unk2 { get; set; }
+        public uint Unk2 { get; set; }
+
+        public CaptainCurrentRoundInfoAckMessage()
+        {
+        }
+
+        public CaptainCurrentRoundInfoAckMessage(uint unk1, uint unk2)
+        {
+            Unk1 = unk1;
+            Unk2 = unk2;
+        }
     }
 
     [BlubContract]

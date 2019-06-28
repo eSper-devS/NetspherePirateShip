@@ -21,6 +21,7 @@ namespace Netsphere.Server.Game
             Register(GameRule.Touchdown, x => typeof(Touchdown));
             Register(GameRule.BattleRoyal, x => typeof(BattleRoyal));
             Register(GameRule.Practice, x => typeof(Practice));
+            Register(GameRule.Captain, X => typeof(Captain));
         }
 
         /// <param name="priority">Higher value means higher priority. Default is 10</param>

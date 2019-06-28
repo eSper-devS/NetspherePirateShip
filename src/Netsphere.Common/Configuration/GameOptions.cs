@@ -52,6 +52,15 @@
         public int PointsPerDeath { get; set; }
     }
 
+    public class CaptainOptions
+    {
+        public ExperienceRateOptions ExperienceRates { get; set; }
+        public int PointsPerKill { get; set; }
+        public int PointsPerKillAssist { get; set; }
+        public int PointsPerCaptainKill { get; set; }
+        public int PointsPerCaptainKillAssist { get; set; }
+    }
+
     public class ExperienceRateOptions
     {
         public float ScoreFactor { get; set; }
