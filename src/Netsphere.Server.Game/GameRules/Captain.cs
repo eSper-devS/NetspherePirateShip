@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using BlubLib.Collections.Generic;
 using Microsoft.Extensions.Options;
 using Netsphere.Common.Configuration;
 using Netsphere.Network.Data.GameRule;
@@ -207,6 +208,13 @@ namespace Netsphere.Server.Game.GameRules
                 return;
             }
 
+            if (_captains.TryRemove(target.Player, out _))
+            {
+                GetScore(killer).BonusKills++;
+                if (assist != null)
+                    GetScore(assist).BonusKillAssists++;
+            }
+
             killer.Score.Kills++;
             if (assist != null)
                 assist.Score.KillAssists++;
@@ -220,6 +228,8 @@ namespace Netsphere.Server.Game.GameRules
             plr.Score.Deaths++;
             plr.Score.Suicides++;
             SendScoreSuicide(plr);
+
+            _captains.TryRemove(plr, out _);
         }
 
         protected static CaptainPlayerScore GetScore(ScoreContext plr)
