@@ -1286,25 +1286,43 @@ namespace Netsphere.Network.Message.GameRule
     public class RoomEnterPlayerForBookNameTagsAckMessage : IGameRuleMessage
     {
         [BlubMember(0)]
-        public long Unk1 { get; set; }
+        public ulong AccountId { get; set; }
 
         [BlubMember(1)]
-        public byte Unk2 { get; set; }
+        [BlubSerializer(typeof(EnumSerializer), typeof(byte))]
+        public TeamId Team { get; set; }
 
         [BlubMember(2)]
-        public byte Unk3 { get; set; }
+        [BlubSerializer(typeof(EnumSerializer), typeof(byte))]
+        public PlayerGameMode PlayerGameMode { get; set; }
 
         [BlubMember(3)]
-        public int Un4 { get; set; }
+        public uint TotalExperience { get; set; }
 
         [BlubMember(4)]
-        public string Unk5 { get; set; }
+        public string Nickname { get; set; }
 
         [BlubMember(5)]
-        public byte Unk6 { get; set; }
+        public byte Unk { get; set; }
 
         [BlubMember(6)]
-        public int Unk7 { get; set; }
+        public uint NameTag { get; set; }
+
+        public RoomEnterPlayerForBookNameTagsAckMessage()
+        {
+        }
+
+        public RoomEnterPlayerForBookNameTagsAckMessage(ulong accountId, string nickname, uint totalExperience,
+            PlayerGameMode mode, TeamId team, byte unk1, uint nameTag)
+        {
+            AccountId = accountId;
+            Nickname = nickname;
+            TotalExperience = totalExperience;
+            Unk = unk1;
+            PlayerGameMode = mode;
+            NameTag = nameTag;
+            Team = team;
+        }
     }
 
     [BlubContract]
@@ -1313,6 +1331,16 @@ namespace Netsphere.Network.Message.GameRule
         [BlubMember(0)]
         [BlubSerializer(typeof(ArrayWithIntPrefixSerializer))]
         public NameTagDto[] NameTags { get; set; }
+
+        public RoomEnterPlayerInfoListForNameTagAckMessage()
+        {
+            NameTags = Array.Empty<NameTagDto>();
+        }
+
+        public RoomEnterPlayerInfoListForNameTagAckMessage(NameTagDto[] nameTags)
+        {
+            NameTags = nameTags;
+        }
     }
 
     [BlubContract]

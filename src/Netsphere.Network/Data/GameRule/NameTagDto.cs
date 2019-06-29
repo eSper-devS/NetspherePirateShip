@@ -9,6 +9,15 @@ namespace Netsphere.Network.Data.GameRule
         public ulong AccountId { get; set; }
 
         [BlubMember(1)]
-        public int Unk { get; set; }
+        public uint NameTag { get; set; }
+
+        public NameTagDto()
+        {
+        }
+
+        public NameTagDto(ulong accountId, uint nameTag)
+        {
+            NameTag = nameTag;
+        }
     }
 }

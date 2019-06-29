@@ -46,10 +46,23 @@ namespace Netsphere.Server.Game.Handlers
             if (!plr.IsConnectingToRoom)
                 return true;
 
-            room.Broadcast(new RoomEnterPlayerAckMessage(plr.Account.Id, plr.Account.Nickname, 0, plr.Mode, 0, plr.Team.Id));
+            room.Broadcast(new RoomEnterPlayerForBookNameTagsAckMessage(
+                plr.Account.Id,
+                plr.Account.Nickname,
+                plr.TotalExperience,
+                plr.Mode,
+                plr.Team.Id,
+                0,
+                0
+            ));
+            plr.Session.Send(new RoomEnterPlayerInfoListForNameTagAckMessage(
+                room.Players.Values
+                    .Select(x => new NameTagDto(x.Account.Id, 0))
+                    .ToArray()
+            ));
             session.Send(new RoomChangeMasterAckMessage(room.Master.Account.Id));
             session.Send(new RoomChangeRefereeAckMessage(room.Host.Account.Id));
-            room.BroadcastBriefing();
+            plr.SendBriefing();
             plr.IsConnectingToRoom = false;
             room.OnPlayerJoined(plr);
             return true;

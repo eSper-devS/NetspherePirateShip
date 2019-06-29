@@ -4,7 +4,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using ExpressMapper.Extensions;
 using Logging;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Netsphere.Common;
 using Netsphere.Common.Configuration;
@@ -14,6 +13,7 @@ using Netsphere.Database.Helpers;
 using Netsphere.Network;
 using Netsphere.Network.Data.Game;
 using Netsphere.Network.Message.Game;
+using Netsphere.Network.Message.GameRule;
 using Netsphere.Server.Game.Services;
 
 namespace Netsphere.Server.Game
@@ -359,6 +359,15 @@ namespace Netsphere.Server.Game
         public void SendNotice(string message)
         {
             Session.Send(new NoticeAdminMessageAckMessage(message));
+        }
+
+        public void SendBriefing()
+        {
+            if (Room == null)
+                return;
+
+            var briefing = Room.GetBriefing();
+            Session.Send(new GameBriefingInfoAckMessage(false, false, briefing.GetData()));
         }
 
         public async Task Save(GameContext db)
