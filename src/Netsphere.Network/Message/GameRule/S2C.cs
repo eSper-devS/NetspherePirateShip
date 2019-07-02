@@ -1225,7 +1225,17 @@ namespace Netsphere.Network.Message.GameRule
     public class RoomGamePlayCountDownAckMessage : IGameRuleMessage
     {
         [BlubMember(0)]
-        public int Unk { get; set; }
+        [BlubSerializer(typeof(TimeSpanMillisecondsSerializer))]
+        public TimeSpan Countdown { get; set; }
+
+        public RoomGamePlayCountDownAckMessage()
+        {
+        }
+
+        public RoomGamePlayCountDownAckMessage(TimeSpan countdown)
+        {
+            Countdown = countdown;
+        }
     }
 
     [BlubContract]

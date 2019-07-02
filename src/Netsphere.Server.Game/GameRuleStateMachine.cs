@@ -14,6 +14,7 @@ namespace Netsphere.Server.Game
         private static readonly TimeSpan s_preResultWaitTime = TimeSpan.FromSeconds(10);
         private static readonly TimeSpan s_halfTimeWaitTime = TimeSpan.FromSeconds(25);
         private static readonly TimeSpan s_resultWaitTime = TimeSpan.FromSeconds(15);
+        private static readonly TimeSpan s_startingWaitTime = TimeSpan.FromSeconds(5);
         private static readonly EventPipeline<ScheduleTriggerHookEventArgs> s_scheduleTriggerHook =
             new EventPipeline<ScheduleTriggerHookEventArgs>();
 
@@ -66,6 +67,10 @@ namespace Netsphere.Server.Game
                 .PermitIf(GameRuleStateTrigger.StartGame, GameRuleState.Loading, _canStartGame);
 
             _stateMachine.Configure(GameRuleState.Loading)
+                .SubstateOf(GameRuleState.Playing)
+                .Permit(GameRuleStateTrigger.StartGame, GameRuleState.Starting);
+
+            _stateMachine.Configure(GameRuleState.Starting)
                 .SubstateOf(GameRuleState.Playing)
                 .Permit(GameRuleStateTrigger.StartGame, GameRuleState.FirstHalf);
 
@@ -133,7 +138,7 @@ namespace Netsphere.Server.Game
             if (_stateMachine.IsInState(GameRuleState.Waiting))
                 return GameState.Waiting;
 
-            if (_stateMachine.IsInState(GameRuleState.Loading))
+            if (_stateMachine.IsInState(GameRuleState.Loading) || _stateMachine.IsInState(GameRuleState.Starting))
                 return GameState.Loading;
 
             if (_stateMachine.IsInState(GameRuleState.Result) ||
@@ -167,6 +172,7 @@ namespace Netsphere.Server.Game
             switch (transition.Destination)
             {
                 case GameRuleState.Loading:
+                    _gameEnded = new CancellationTokenSource();
                     foreach (var team in room.TeamManager.Values)
                         team.Score = 0;
 
@@ -191,6 +197,13 @@ namespace Netsphere.Server.Game
                     OnGameStateChanged();
                     break;
 
+                case GameRuleState.Starting:
+                    foreach (var plr in room.Players.Values.Where(x => x.State == PlayerState.Waiting))
+                        plr.Session.Send(new RoomGamePlayCountDownAckMessage(s_startingWaitTime));
+
+                    ScheduleTrigger(GameRuleStateTrigger.StartGame, s_startingWaitTime);
+                    break;
+
                 case GameRuleState.EnteringHalfTime:
                     ScheduleTrigger(GameRuleStateTrigger.StartHalfTime, s_preHalfTimeWaitTime);
                     AnnounceHalfTime();
@@ -204,7 +217,6 @@ namespace Netsphere.Server.Game
                     break;
 
                 case GameRuleState.FirstHalf:
-                    _gameEnded = new CancellationTokenSource();
                     _gameStartTime = DateTimeOffset.Now;
 
                     foreach (var plr in room.Players.Values)

@@ -87,6 +87,7 @@ namespace Netsphere.Server.Game
     {
         Waiting,
         Loading,
+        Starting,
         Playing,
         EnteringResult,
         Result,
