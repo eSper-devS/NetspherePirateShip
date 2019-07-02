@@ -333,7 +333,8 @@ namespace Netsphere.Server.Game
                 AP = AP,
                 PEN = PEN,
                 TutorialState = (uint)(_gameOptions.EnableTutorial ? TutorialState : 2),
-                Nickname = Account.Nickname
+                Nickname = Account.Nickname,
+                IsGM = Account.SecurityLevel > SecurityLevel.User
             }));
         }
 
