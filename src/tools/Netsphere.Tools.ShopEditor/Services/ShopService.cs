@@ -174,7 +174,9 @@ namespace Netsphere.Tools.ShopEditor.Services
             {
                 var itemEntity = new ShopItemEntity
                 {
-                    Id = itemNumber
+                    Id = itemNumber,
+                    MainTab = 1,
+                    SubTab = 1
                 };
                 db.Items.Add(itemEntity);
                 await db.SaveChangesAsync();
