@@ -64,7 +64,11 @@ namespace Netsphere.Server.Game
                 .UseProudNetServer(builder =>
                 {
                     var messageHandlerResolver = new DefaultMessageHandlerResolver(
-                        AppDomain.CurrentDomain.GetAssemblies(), typeof(IGameMessage), typeof(IGameRuleMessage));
+                        AppDomain.CurrentDomain.GetAssemblies(),
+                        typeof(IGameMessage),
+                        typeof(IGameRuleMessage),
+                        typeof(IClubMessage)
+                    );
 
                     builder
                         .UseHostIdFactory<HostIdFactory>()

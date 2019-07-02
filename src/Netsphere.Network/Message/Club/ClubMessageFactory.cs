@@ -74,6 +74,7 @@ namespace Netsphere.Network.Message.Club
             Register<ClubAdminMasterChangeReqMessage>(ClubOpCode.ClubAdminMasterChangeReq);
             Register<ClubAdminJoinConditionModifyReqMessage>(ClubOpCode.ClubAdminJoinConditionModifyReq);
             Register<ClubAdminBoardModifyReqMessage>(ClubOpCode.ClubAdminBoardModifyReq);
+            Register<ClubSearchReqMessage>(ClubOpCode.ClubSearchReq);
             Register<ClubInfoReqMessage>(ClubOpCode.ClubInfoReq);
             Register<ClubJoinWaiterInfoReqMessage>(ClubOpCode.ClubJoinWaiterInfoReq);
             Register<ClubNewJoinMemberInfoReqMessage>(ClubOpCode.ClubNewJoinMemberInfoReq);
