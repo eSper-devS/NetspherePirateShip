@@ -1,7 +1,9 @@
 using System;
 using System.Threading.Tasks;
+using Foundatio.Messaging;
 using Logging;
 using Netsphere.Common;
+using Netsphere.Common.Messaging;
 using Netsphere.Database;
 using Netsphere.Database.Game;
 using Netsphere.Database.Helpers;
@@ -10,12 +12,15 @@ namespace Netsphere.Server.Chat
 {
     public class Player : ISaveable
     {
+        private readonly IMessageBus _messageBus;
+
         public Session Session { get; private set; }
         public Account Account { get; private set; }
         public Mailbox Mailbox { get; }
         public DenyManager Ignore { get; }
         public PlayerSettingManager Settings { get; }
         public uint TotalExperience { get; internal set; }
+        public int Level { get; internal set; }
         public Channel Channel { get; internal set; }
         public uint RoomId { get; internal set; }
         public TeamId TeamId { get; internal set; }
@@ -30,8 +35,9 @@ namespace Netsphere.Server.Chat
             Disconnected?.Invoke(this, new PlayerEventArgs(this));
         }
 
-        public Player(Mailbox mailbox, DenyManager denyManager, PlayerSettingManager settings)
+        public Player(Mailbox mailbox, DenyManager denyManager, PlayerSettingManager settings, IMessageBus messageBus)
         {
+            _messageBus = messageBus;
             Mailbox = mailbox;
             Ignore = denyManager;
             Settings = settings;
@@ -42,6 +48,10 @@ namespace Netsphere.Server.Chat
             Session = session;
             Account = account;
             TotalExperience = (uint)entity.TotalExperience;
+            var response = await _messageBus.PublishRequestAsync<LevelFromExperienceRequest, LevelFromExperienceResponse>(
+                new LevelFromExperienceRequest(TotalExperience)
+            );
+            Level = response.Level;
             await Mailbox.Initialize(this, entity);
             await Ignore.Initialize(this, entity);
             Settings.Initialize(this, entity);

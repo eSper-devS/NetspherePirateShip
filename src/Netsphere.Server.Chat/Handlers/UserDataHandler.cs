@@ -9,7 +9,14 @@ namespace Netsphere.Server.Chat.Handlers
 {
     internal class UserDataHandler : IHandle<UserDataOneReqMessage>
     {
-        [Firewall(typeof(MustBeInChannel))]
+        private readonly PlayerManager _playerManager;
+
+        public UserDataHandler(PlayerManager playerManager)
+        {
+            _playerManager = playerManager;
+        }
+
+        [Firewall(typeof(MustBeLoggedIn))]
         [Inline]
         public async Task<bool> OnHandle(MessageContext context, UserDataOneReqMessage message)
         {
@@ -18,14 +25,15 @@ namespace Netsphere.Server.Chat.Handlers
 
             if (plr.Account.Id == message.AccountId)
             {
-                session.Send(new UserDataFourAckMessage(0, plr.Map<Player, UserDataDto>()));
+                session.Send(new UserDataFourAckMessage(25, plr.Map<Player, UserDataDto>()));
                 return true;
             }
 
-            if (!plr.Channel.Players.TryGetValue(message.AccountId, out var target))
+            var target = _playerManager[message.AccountId];
+            if (plr.Channel != target.Channel)
                 return true;
 
-            session.Send(new UserDataFourAckMessage(0, target.Map<Player, UserDataDto>()));
+            session.Send(new UserDataFourAckMessage(25, target.Map<Player, UserDataDto>()));
             return true;
         }
     }

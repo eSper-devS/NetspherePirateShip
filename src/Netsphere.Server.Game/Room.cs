@@ -65,7 +65,9 @@ namespace Netsphere.Server.Game
         {
             PlayerJoining?.Invoke(this, new RoomPlayerEventArgs(this, plr));
             RoomManager.Channel.Broadcast(new RoomChangeRoomInfoAck2Message(this.Map<Room, Room2Dto>()));
-            _messageBus.PublishAsync(new PlayerUpdateMessage(plr.Account.Id, plr.TotalExperience, Id, TeamId.Neutral));
+            _messageBus.PublishAsync(new PlayerUpdateMessage(
+                plr.Account.Id, plr.TotalExperience, plr.Level, Id, TeamId.Neutral
+            ));
         }
 
         internal virtual void OnPlayerJoined(Player plr)
@@ -77,15 +79,17 @@ namespace Netsphere.Server.Game
                 team = plr.Team?.Id ?? TeamId.Neutral;
 
             _messageBus.PublishAsync(new PlayerUpdateMessage(
-                plr.Account.Id, plr.TotalExperience, Id, team)
-            );
+                plr.Account.Id, plr.TotalExperience, plr.Level, Id, team
+            ));
         }
 
         protected virtual void OnPlayerLeft(Player plr)
         {
             PlayerLeft?.Invoke(this, new RoomPlayerEventArgs(this, plr));
             RoomManager.Channel.Broadcast(new RoomChangeRoomInfoAck2Message(this.Map<Room, Room2Dto>()));
-            _messageBus.PublishAsync(new PlayerUpdateMessage(plr.Account.Id, plr.TotalExperience, 0, TeamId.Neutral));
+            _messageBus.PublishAsync(new PlayerUpdateMessage(
+                plr.Account.Id, plr.TotalExperience, plr.Level, 0, TeamId.Neutral
+            ));
         }
 
         protected virtual void OnOptionsChanged()
@@ -408,8 +412,8 @@ namespace Netsphere.Server.Game
                 foreach (var plr in Players.Values)
                 {
                     _messageBus.PublishAsync(new PlayerUpdateMessage(
-                        plr.Account.Id, plr.TotalExperience, Id, plr.Team?.Id ?? TeamId.Neutral)
-                    );
+                        plr.Account.Id, plr.TotalExperience, plr.Level, Id, plr.Team?.Id ?? TeamId.Neutral
+                    ));
                 }
             }
         }
@@ -422,7 +426,7 @@ namespace Netsphere.Server.Game
                 team = plr.Team?.Id ?? TeamId.Neutral;
 
             _messageBus.PublishAsync(new PlayerUpdateMessage(
-                plr.Account.Id, plr.TotalExperience, Id, team
+                plr.Account.Id, plr.TotalExperience, plr.Level, Id, team
             ));
         }
     }

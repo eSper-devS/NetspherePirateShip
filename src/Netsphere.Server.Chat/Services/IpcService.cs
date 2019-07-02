@@ -100,6 +100,7 @@ namespace Netsphere.Server.Chat.Services
             }
 
             plr.TotalExperience = message.TotalExperience;
+            plr.Level = message.Level;
             plr.RoomId = message.RoomId;
             plr.TeamId = message.TeamId;
 
