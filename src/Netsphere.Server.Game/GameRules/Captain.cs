@@ -247,6 +247,94 @@ namespace Netsphere.Server.Game.GameRules
         {
             return (CaptainPlayerScore)plr.Score;
         }
+<<<<<<< HEAD
+=======
+
+        private void GameStateChanged(object sender, System.EventArgs e)
+        {
+            switch (StateMachine.GameState)
+            {
+                case GameState.Playing:
+                    _roundCount = 0;
+                    NextRound(this, null);
+                    break;
+
+                case GameState.Result:
+                    RoundEnd(this, _roundCount);
+                    break;
+            }
+        }
+
+        private static void RoundEnd(object context, object roundCount)
+        {
+            if (!(context is Captain captain))
+                return;
+
+            if ((int)roundCount != captain._roundCount)
+                return;
+
+            var alphaCaptain = captain._captains.Count(x => x.Value == TeamId.Alpha);
+            var betaCaptain = captain._captains.Count(x => x.Value == TeamId.Beta);
+            var winnerTeam = alphaCaptain > betaCaptain ? TeamId.Alpha : TeamId.Beta;
+
+            captain.TeamManager[winnerTeam].Score++;
+            captain.Room.Broadcast(new CaptainSubRoundWinAckMessage(3, winnerTeam));
+
+            if ((int)roundCount >= captain.Room.Options.TimeLimit.Minutes)
+            {
+                captain.StateMachine.StartResult();
+                return;
+            }
+
+            if (captain.StateMachine.GameState != GameState.Playing)
+                return;
+
+            var time = TimeSpan.FromSeconds(captain.Room.Options.TimeLimit.TotalSeconds);
+            var diff = time - captain.StateMachine.RoundTime;
+            if (diff <= s_captainWaitTime + TimeSpan.FromSeconds(2))
+                return;
+
+            captain.Room.Broadcast(new GameEventMessageAckMessage(GameEventMessage.NextRoundIn,
+                (ulong)s_captainWaitTime.TotalMilliseconds, 0, 0, ""));
+            captain._schedulerService.ScheduleAsync(NextRound, captain, null, s_captainWaitTime);
+        }
+
+        private static void NextRound(object context, object _)
+        {
+            if (!(context is Captain captain))
+                return;
+
+            if (captain.StateMachine.GameState != GameState.Playing)
+                return;
+
+            var mostPlayerCountTeam = captain.TeamManager.OrderByDescending(x => x.Value.PlayersPlaying.Count()).FirstOrDefault();
+            var leastPlayerCountTeam = captain.TeamManager.FirstOrDefault(x => x.Key != mostPlayerCountTeam.Key);
+
+            var maxHp = 100 * mostPlayerCountTeam.Value.PlayersPlaying.Count();
+            var balanceHp = maxHp - (maxHp - 100 * leastPlayerCountTeam.Value.PlayersPlaying.Count());
+
+            var lifeDtoList = new List<CaptainLifeDto>();
+            foreach (var plr in mostPlayerCountTeam.Value.PlayersPlaying)
+                lifeDtoList.Add(new CaptainLifeDto(plr.Account.Id, balanceHp));
+
+            foreach (var plr in leastPlayerCountTeam.Value.PlayersPlaying)
+                lifeDtoList.Add(new CaptainLifeDto(plr.Account.Id, maxHp));
+
+            captain._captains.Clear();
+            foreach (var plr in captain.Room.TeamManager.PlayersPlaying)
+                captain._captains.Add(plr, plr.Team.Id);
+
+            foreach (var plr in captain.Room.TeamManager.PlayersPlaying)
+            {
+                plr.Session.Send(new CaptainRoundCaptainLifeInfoAckMessage(lifeDtoList.ToArray()));
+                plr.Session.Send(new GameEventMessageAckMessage(GameEventMessage.ResetRound, 0, 0, 0, string.Empty));
+                plr.Session.Send(new CaptainCurrentRoundInfoAckMessage(captain.TeamManager[TeamId.Alpha].Score,
+                    captain.TeamManager[TeamId.Beta].Score));
+            }
+
+            captain._schedulerService.ScheduleAsync(RoundEnd, captain, ++captain._roundCount, s_captainRoundTime);
+        }
+>>>>>>> Balance Captain HP
     }
 
     public class BriefingPlayerCaptain : BriefingPlayer
