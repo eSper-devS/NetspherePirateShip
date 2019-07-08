@@ -216,9 +216,9 @@ namespace Netsphere.Server.Game.GameRules
 
             if (_captains.TryRemove(target.Player, out _))
             {
-                GetScore(killer).BonusKills++;
+                GetScore(killer).CaptainKills++;
                 if (assist != null)
-                    GetScore(assist).BonusKillAssists++;
+                    GetScore(assist).CaptainKillAssists++;
             }
 
             killer.Score.Kills++;
@@ -339,11 +339,12 @@ namespace Netsphere.Server.Game.GameRules
 
     public class BriefingPlayerCaptain : BriefingPlayer
     {
-        public uint Kills { get; set; }
-        public uint KillAssists { get; set; }
+        public uint NonCaptainKills { get; set; }
+        public uint NonCaptainKillAssists { get; set; }
         public uint CaptainKills { get; set; }
         public uint CaptainKillAssists { get; set; }
         public uint HealPoints { get; set; }
+        public uint Suicide { get; set; }
         public uint RoundsWon { get; set; }
 
         public BriefingPlayerCaptain(Player plr)
@@ -357,10 +358,12 @@ namespace Netsphere.Server.Game.GameRules
             TotalScore = plr.Score.GetTotalScore();
 
             var score = (CaptainPlayerScore)plr.Score;
-            Kills = score.Kills;
-            KillAssists = score.KillAssists;
-            CaptainKills = score.BonusKills;
-            CaptainKillAssists = score.BonusKillAssists;
+            NonCaptainKills = score.NonCaptainKills;
+            NonCaptainKillAssists = score.NonCaptainKillAssists;
+            CaptainKills = score.CaptainKills;
+            CaptainKillAssists = score.CaptainKillAssists;
+            HealPoints = score.HealAssists;
+            RoundsWon = score.RoundsWon;
         }
 
         public override void Serialize(BinaryWriter w)
@@ -369,8 +372,8 @@ namespace Netsphere.Server.Game.GameRules
 
             w.Write(CaptainKills);
             w.Write(CaptainKillAssists);
-            w.Write(Kills);
-            w.Write(KillAssists);
+            w.Write(NonCaptainKills);
+            w.Write(CaptainKillAssists);
             w.Write(HealPoints);
             w.Write(RoundsWon);
             w.Write(0);
@@ -386,8 +389,11 @@ namespace Netsphere.Server.Game.GameRules
     {
         private readonly CaptainOptions _options;
 
-        public uint BonusKills { get; set; }
-        public uint BonusKillAssists { get; set; }
+        public uint NonCaptainKills { get; set; }
+        public uint NonCaptainKillAssists { get; set; }
+        public uint CaptainKills { get; set; }
+        public uint CaptainKillAssists { get; set; }
+        public uint RoundsWon { get; set; }
 
         public CaptainPlayerScore(CaptainOptions options)
         {
@@ -396,17 +402,27 @@ namespace Netsphere.Server.Game.GameRules
 
         public override uint GetTotalScore()
         {
-            return (uint)(Kills * _options.PointsPerKill +
-                          KillAssists * _options.PointsPerKillAssist +
-                          BonusKills * _options.PointsPerCaptainKill +
-                          BonusKillAssists * _options.PointsPerCaptainKillAssist);
+            var score = (NonCaptainKills * _options.PointsPerNonCaptainKills +
+                         NonCaptainKillAssists * _options.PointsPerNonCaptainKillAssists +
+                         CaptainKills * _options.PointsPerCaptainKills +
+                         CaptainKillAssists * _options.PointsPerCaptainKillAssists +
+                         RoundsWon * _options.PointsPerRoundWins);
+
+            score -= Suicides * _options.PointsPerSuicide;
+            if (score < 0)
+                score = 0;
+
+            return (uint)score;
         }
 
         public override void Reset()
         {
             base.Reset();
-            BonusKills = 0;
-            BonusKillAssists = 0;
+            NonCaptainKills = 0;
+            NonCaptainKillAssists = 0;
+            CaptainKills = 0;
+            CaptainKillAssists = 0;
+            RoundsWon = 0;
         }
     }
 }

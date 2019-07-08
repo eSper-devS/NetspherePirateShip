@@ -107,5 +107,22 @@
       PointsPerBonusAssist: 1
       PointsPerDeath: 0
     }
+    Captain:
+    {
+      ExperienceRates:
+      {
+        ScoreFactor: 0.7
+        FirstPlaceBonus: 50
+        SecondPlaceBonus: 30
+        ThirdPlaceBonus: 10
+        PlayerCountFactor: 0.06
+        ExperiencePerMinute: 20
+      }
+      PointsPerNonCaptainKill: 2
+      PointsPerCaptainKill: 5
+      PointsPerRoundWin: 5
+      PointsPerSuicide: -1
+      PointsPerHeal: 1
+    }
   }
 }
