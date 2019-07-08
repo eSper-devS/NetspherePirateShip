@@ -56,7 +56,7 @@
     public class CaptainOptions
     {
         public ExperienceRateOptions ExperienceRates { get; set; }
-        public int PointsPerNonCaptainKilsl { get; set; }
+        public int PointsPerNonCaptainKills { get; set; }
         public int PointsPerNonCaptainKillAssists { get; set; }
         public int PointsPerCaptainKills { get; set; }
         public int PointsPerCaptainKillAssists { get; set; }
