@@ -32,7 +32,7 @@ namespace Netsphere.Network.Message.Chat
     public class FriendActionReqMessage : IChatMessage
     {
         [BlubMember(0)]
-        public uint Action { get; set; }
+        public FriendAction Action { get; set; }
 
         [BlubMember(1)]
         public ulong AccountId { get; set; }

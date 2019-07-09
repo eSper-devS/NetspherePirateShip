@@ -3,8 +3,8 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Netsphere.Database.Game
 {
-    [Table("player_deny")]
-    public class PlayerDenyEntity
+    [Table("player_friends")]
+    public class PlayerFriendEntity
     {
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.None)]
@@ -15,7 +15,10 @@ namespace Netsphere.Database.Game
         public PlayerEntity Player { get; set; }
 
         [Column]
-        public int DenyPlayerId { get; set; }
-        public PlayerEntity DenyPlayer { get; set; }
+        public int FriendPlayerId { get; set; }
+        public PlayerEntity FriendPlayer { get; set; }
+
+        [Column]
+        public byte State { get; set; }
     }
 }

@@ -317,6 +317,29 @@ namespace Netsphere
         Remove = 1
     }
 
+    public enum FriendAction : uint
+    {
+        Add = 0,
+        Remove = 1,
+        AcceptRequest = 2,
+        DenyRequest = 3
+    }
+
+    public enum FriendActionResult : uint
+    {
+        Success = 0,
+        UserDoesNotExist = 1
+    }
+
+    public enum FriendState : uint
+    {
+        Requested = 1,
+        Friends = 2,
+        IncomingRequest = 3,
+        Removed = 4,
+        OnlyInMyList = 5
+    }
+
     public enum ActorState : byte
     {
         Spectate,

@@ -33,6 +33,7 @@ namespace Netsphere.Database.Game
 
         public List<PlayerCharacterEntity> Characters { get; set; } = new List<PlayerCharacterEntity>();
         public List<PlayerDenyEntity> Ignores { get; set; } = new List<PlayerDenyEntity>();
+        public List<PlayerFriendEntity> Friends { get; set; } = new List<PlayerFriendEntity>();
         public List<PlayerItemEntity> Items { get; set; } = new List<PlayerItemEntity>();
         public List<PlayerMailEntity> Inbox { get; set; } = new List<PlayerMailEntity>();
         public List<PlayerSettingEntity> Settings { get; set; } = new List<PlayerSettingEntity>();

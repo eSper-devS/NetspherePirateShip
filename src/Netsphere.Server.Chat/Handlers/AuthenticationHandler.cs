@@ -88,6 +88,7 @@ namespace Netsphere.Server.Chat.Handlers
                 var accountId = (long)message.AccountId;
                 var playerEntity = await db.Players
                     .Include(x => x.Ignores)
+                    .Include(x => x.Friends)
                     .Include(x => x.Inbox)
                     .Include(x => x.Settings)
                     .FirstOrDefaultAsync(x => x.Id == accountId);
@@ -105,9 +106,12 @@ namespace Netsphere.Server.Chat.Handlers
             }
 
             session.Send(new LoginAckMessage(0));
-            session.Send(
-                new DenyListAckMessage(session.Player.Ignore.Select(x => x.Map<Deny, DenyDto>()).ToArray())
-            );
+            session.Send(new DenyListAckMessage(
+                session.Player.Ignore.Select(x => x.Map<Deny, DenyDto>()).ToArray()
+            ));
+            session.Send(new FriendListAckMessage(
+                session.Player.Friends.Select(x => x.Map<Friend, FriendDto>()).ToArray()
+            ));
             session.Send(new ChannelPlayerListAckMessage(
                 _playerManager.Where(x => x.Channel == null).Select(x => x.Map<Player, PlayerInfoShortDto>()).ToArray()
             ));

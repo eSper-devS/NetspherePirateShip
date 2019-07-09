@@ -18,6 +18,7 @@ namespace Netsphere.Server.Chat
         public Account Account { get; private set; }
         public Mailbox Mailbox { get; }
         public DenyManager Ignore { get; }
+        public FriendManager Friends { get; }
         public PlayerSettingManager Settings { get; }
         public uint TotalExperience { get; internal set; }
         public int Level { get; internal set; }
@@ -35,11 +36,13 @@ namespace Netsphere.Server.Chat
             Disconnected?.Invoke(this, new PlayerEventArgs(this));
         }
 
-        public Player(Mailbox mailbox, DenyManager denyManager, PlayerSettingManager settings, IMessageBus messageBus)
+        public Player(Mailbox mailbox, DenyManager denyManager, FriendManager friendManager,
+            PlayerSettingManager settings, IMessageBus messageBus)
         {
             _messageBus = messageBus;
             Mailbox = mailbox;
             Ignore = denyManager;
+            Friends = friendManager;
             Settings = settings;
         }
 
@@ -54,6 +57,7 @@ namespace Netsphere.Server.Chat
             Level = response.Level;
             await Mailbox.Initialize(this, entity);
             await Ignore.Initialize(this, entity);
+            await Friends.Initialize(this, entity);
             Settings.Initialize(this, entity);
         }
 
@@ -71,6 +75,7 @@ namespace Netsphere.Server.Chat
         {
             await Mailbox.Save(db);
             await Ignore.Save(db);
+            await Friends.Save(db);
             await Settings.Save(db);
         }
 

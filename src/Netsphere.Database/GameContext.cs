@@ -8,6 +8,7 @@ namespace Netsphere.Database
         public DbSet<PlayerEntity> Players { get; set; }
         public DbSet<PlayerCharacterEntity> PlayerCharacters { get; set; }
         public DbSet<PlayerDenyEntity> PlayerIgnores { get; set; }
+        public DbSet<PlayerFriendEntity> PlayerFriends { get; set; }
         public DbSet<PlayerItemEntity> PlayerItems { get; set; }
         public DbSet<PlayerMailEntity> PlayerMails { get; set; }
         public DbSet<PlayerSettingEntity> PlayerSettings { get; set; }
@@ -41,6 +42,13 @@ namespace Netsphere.Database
 
             modelBuilder.Entity<PlayerDenyEntity>()
                 .HasOne(x => x.DenyPlayer);
+
+            modelBuilder.Entity<PlayerFriendEntity>()
+                .HasOne(x => x.Player)
+                .WithMany(x => x.Friends);
+
+            modelBuilder.Entity<PlayerFriendEntity>()
+                .HasOne(x => x.FriendPlayer);
 
             modelBuilder.Entity<PlayerMailEntity>()
                 .HasOne(x => x.Player)

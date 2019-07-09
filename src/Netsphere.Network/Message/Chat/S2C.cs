@@ -25,10 +25,10 @@ namespace Netsphere.Network.Message.Chat
     public class FriendActionAckMessage : IChatMessage
     {
         [BlubMember(0)]
-        public int Result { get; set; }
+        public FriendActionResult Result { get; set; }
 
         [BlubMember(1)]
-        public int Unk { get; set; }
+        public FriendAction Action { get; set; }
 
         [BlubMember(2)]
         public FriendDto Friend { get; set; }
@@ -38,16 +38,17 @@ namespace Netsphere.Network.Message.Chat
             Friend = new FriendDto();
         }
 
-        public FriendActionAckMessage(int result)
+        public FriendActionAckMessage(FriendActionResult result, FriendAction action)
             : this()
         {
             Result = result;
+            Action = action;
         }
 
-        public FriendActionAckMessage(int result, int unk, FriendDto friend)
+        public FriendActionAckMessage(FriendActionResult result, FriendAction action, FriendDto friend)
         {
             Result = result;
-            Unk = unk;
+            Action = action;
             Friend = friend;
         }
     }

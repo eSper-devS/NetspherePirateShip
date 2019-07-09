@@ -12,7 +12,7 @@ namespace Netsphere.Network.Data.Chat
         public string Nickname { get; set; }
 
         [BlubMember(2)]
-        public uint State { get; set; } // request pending, accepted etc.
+        public FriendState State { get; set; } // request pending, accepted etc.
 
         [BlubMember(3)]
         public uint Unk { get; set; }

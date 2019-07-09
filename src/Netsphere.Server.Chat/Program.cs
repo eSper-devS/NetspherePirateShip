@@ -112,6 +112,7 @@ namespace Netsphere.Server.Chat
                         .AddTransient<Player>()
                         .AddTransient<Mailbox>()
                         .AddTransient<DenyManager>()
+                        .AddTransient<FriendManager>()
                         .AddTransient<PlayerSettingManager>()
                         .AddSingleton<PlayerManager>()
                         .AddSingleton<ChannelManager>()
@@ -172,6 +173,11 @@ namespace Netsphere.Server.Chat
             Mapper.Register<Deny, DenyDto>()
                 .Member(dest => dest.AccountId, src => src.DenyId)
                 .Member(dest => dest.Nickname, src => src.Nickname);
+
+            Mapper.Register<Friend, FriendDto>()
+                .Member(dest => dest.AccountId, src => src.FriendId)
+                .Member(dest => dest.Nickname, src => src.Nickname)
+                .Member(dest => dest.State, src => src.State);
 
             Mapper.Register<Player, PlayerInfoShortDto>()
                 .Member(dest => dest.AccountId, src => src.Account.Id)
