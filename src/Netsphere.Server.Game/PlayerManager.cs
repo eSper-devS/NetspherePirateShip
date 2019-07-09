@@ -112,7 +112,7 @@ namespace Netsphere.Server.Game
             }
             catch (Exception ex)
             {
-                e.Session.Channel.Pipeline.FireExceptionCaught(ex);
+                plr.AddContextToLogger(_logger).Error(ex, "Disconnect error");
             }
 
             if (plr != null)
