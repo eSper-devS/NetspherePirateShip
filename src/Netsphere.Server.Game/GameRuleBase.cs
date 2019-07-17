@@ -19,6 +19,7 @@ namespace Netsphere.Server.Game
 
         public abstract GameRule GameRule { get; }
         public abstract bool HasHalfTime { get; }
+        public abstract bool HasTimeLimit { get; }
 
         public Room Room { get; private set; }
         public TeamManager TeamManager => Room.TeamManager;
@@ -44,7 +45,7 @@ namespace Netsphere.Server.Game
         public virtual void Initialize(Room room)
         {
             Room = room;
-            StateMachine.Initialize(this, _CanStartGame, HasHalfTime);
+            StateMachine.Initialize(this, _CanStartGame, HasHalfTime, HasTimeLimit);
             Room.PlayerJoining += OnPlayerJoining;
             Room.PlayerLeft += OnPlayerLeft;
 

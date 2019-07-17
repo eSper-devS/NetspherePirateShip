@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Microsoft.Extensions.Options;
@@ -12,6 +11,7 @@ namespace Netsphere.Server.Game.GameRules
 
         public override GameRule GameRule => GameRule.Deathmatch;
         public override bool HasHalfTime => true;
+        public override bool HasTimeLimit => true;
 
         public Deathmatch(GameRuleStateMachine stateMachine, IOptions<GameOptions> gameOptions,
             IOptions<DeathmatchOptions> options)

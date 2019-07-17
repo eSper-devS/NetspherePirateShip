@@ -23,6 +23,7 @@ namespace Netsphere.Server.Game
         private GameRuleBase _gameRule;
         private Func<bool> _canStartGame;
         private bool _hasHalfTime;
+        private bool _hasTimeLimit;
         private DateTimeOffset _gameStartTime;
         private DateTimeOffset _roundStartTime;
         private CancellationTokenSource _gameEnded;
@@ -57,11 +58,12 @@ namespace Netsphere.Server.Game
             _stateMachine.OnTransitioned(OnTransition);
         }
 
-        public void Initialize(GameRuleBase gameRule, Func<bool> canStartGame, bool hasHalfTime)
+        public void Initialize(GameRuleBase gameRule, Func<bool> canStartGame, bool hasHalfTime, bool hasTimeLimit)
         {
             _gameRule = gameRule;
             _canStartGame = canStartGame;
             _hasHalfTime = hasHalfTime;
+            _hasTimeLimit = hasTimeLimit;
 
             _stateMachine.Configure(GameRuleState.Waiting)
                 .PermitIf(GameRuleStateTrigger.StartGame, GameRuleState.Loading, _canStartGame);
@@ -240,10 +242,15 @@ namespace Netsphere.Server.Game
                     );
                     room.BroadcastBriefing();
 
-                    var delay = _hasHalfTime
-                        ? TimeSpan.FromSeconds(room.Options.TimeLimit.TotalSeconds / 2)
-                        : room.Options.TimeLimit;
-                    ScheduleTrigger(_hasHalfTime ? GameRuleStateTrigger.StartHalfTime : GameRuleStateTrigger.StartResult, delay);
+                    if (_hasTimeLimit)
+                    {
+                        var delay = _hasHalfTime
+                            ? TimeSpan.FromSeconds(room.Options.TimeLimit.TotalSeconds / 2)
+                            : room.Options.TimeLimit;
+                        ScheduleTrigger(_hasHalfTime ? GameRuleStateTrigger.StartHalfTime : GameRuleStateTrigger.StartResult,
+                            delay);
+                    }
+
                     OnTimeStateChanged();
                     OnGameStateChanged();
                     break;
@@ -254,8 +261,14 @@ namespace Netsphere.Server.Game
                     break;
 
                 case GameRuleState.SecondHalf:
-                    ScheduleTrigger(GameRuleStateTrigger.StartResult,
-                        TimeSpan.FromMinutes(room.Options.TimeLimit.TotalMinutes / 2));
+                    if (_hasTimeLimit)
+                    {
+                        ScheduleTrigger(
+                            GameRuleStateTrigger.StartResult,
+                            TimeSpan.FromMinutes(room.Options.TimeLimit.TotalMinutes / 2)
+                        );
+                    }
+
                     room.Broadcast(new GameChangeSubStateAckMessage(GameTimeState.SecondHalf));
                     OnTimeStateChanged();
                     break;

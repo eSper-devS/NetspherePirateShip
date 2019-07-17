@@ -1,9 +1,7 @@
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Microsoft.Extensions.Options;
 using Netsphere.Common.Configuration;
-using Netsphere.Network.Message.GameRule;
 
 namespace Netsphere.Server.Game.GameRules
 {
@@ -11,6 +9,7 @@ namespace Netsphere.Server.Game.GameRules
     {
         public override GameRule GameRule => GameRule.Practice;
         public override bool HasHalfTime => false;
+        public override bool HasTimeLimit => true;
 
         public Practice(GameRuleStateMachine stateMachine, IOptions<GameOptions> gameOptions)
             : base(stateMachine, gameOptions)

@@ -19,6 +19,7 @@ namespace Netsphere.Server.Game.GameRules
         public override GameRule GameRule => GameRule.Touchdown;
         public bool IsInTouchdown { get; private set; }
         public override bool HasHalfTime => true;
+        public override bool HasTimeLimit => true;
 
         public Touchdown(GameRuleStateMachine stateMachine, IOptions<GameOptions> gameOptions,
             IOptions<TouchdownOptions> options, ISchedulerService schedulerService)

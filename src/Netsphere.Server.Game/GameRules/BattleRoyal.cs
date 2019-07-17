@@ -13,6 +13,7 @@ namespace Netsphere.Server.Game.GameRules
 
         public override GameRule GameRule => GameRule.BattleRoyal;
         public override bool HasHalfTime => false;
+        public override bool HasTimeLimit => true;
         public virtual Player FirstPlace
         {
             get => _firstPlace;

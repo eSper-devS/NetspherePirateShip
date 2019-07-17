@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -24,6 +24,7 @@ namespace Netsphere.Server.Game.GameRules
 
         public override GameRule GameRule => GameRule.Captain;
         public override bool HasHalfTime => false;
+        public override bool HasTimeLimit => false;
 
         public Captain(GameRuleStateMachine stateMachine, IOptions<GameOptions> gameOptions,
             IOptions<CaptainOptions> options, ISchedulerService schedulerService)
