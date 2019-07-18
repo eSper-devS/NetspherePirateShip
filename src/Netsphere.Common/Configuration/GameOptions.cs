@@ -56,13 +56,12 @@
     public class CaptainOptions
     {
         public ExperienceRateOptions ExperienceRates { get; set; }
-        public int PointsPerNonCaptainKills { get; set; }
-        public int PointsPerNonCaptainKillAssists { get; set; }
-        public int PointsPerCaptainKills { get; set; }
-        public int PointsPerCaptainKillAssists { get; set; }
-        public int PointsPerRoundWins { get; set; }
+        public int PointsPerKill { get; set; }
+        public int PointsPerKillAssist { get; set; }
+        public int PointsPerCaptainKill { get; set; }
+        public int PointsPerRoundWin { get; set; }
         public int PointsPerSuicide { get; set; }
-        public int PointsPerHeals { get; set; }
+        public int PointsPerHeal { get; set; }
     }
 
     public class ExperienceRateOptions

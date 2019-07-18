@@ -118,10 +118,9 @@
         PlayerCountFactor: 0.06
         ExperiencePerMinute: 20
       }
-      PointsPerNonCaptainKills: 2
-      PointsPerNonCaptainKillAssists: 1
-      PointsPerCaptainKills: 5
-      PointsPerCaptainKillAssists: 1
+      PointsPerKill: 2
+      PointsPerKillAssist: 1
+      PointsPerCaptainKill: 5
       PointsPerRoundWin: 5
       PointsPerSuicide: -1
       PointsPerHeal: 1
