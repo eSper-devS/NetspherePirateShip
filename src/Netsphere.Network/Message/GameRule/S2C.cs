@@ -1105,19 +1105,20 @@ namespace Netsphere.Network.Message.GameRule
     public class CaptainCurrentRoundInfoAckMessage : IGameRuleMessage
     {
         [BlubMember(0)]
-        public uint AlphaScore { get; set; }
+        public int CurrentRound { get; set; }
 
         [BlubMember(1)]
-        public uint BetaScore { get; set; }
+        [BlubSerializer(typeof(TimeSpanMillisecondsSerializer))]
+        public TimeSpan RoundTime { get; set; }
 
         public CaptainCurrentRoundInfoAckMessage()
         {
         }
 
-        public CaptainCurrentRoundInfoAckMessage(uint alphaScore, uint betaScore)
+        public CaptainCurrentRoundInfoAckMessage(int currentRound, TimeSpan roundTime)
         {
-            AlphaScore = alphaScore;
-            BetaScore = betaScore;
+            CurrentRound = currentRound;
+            RoundTime = roundTime;
         }
     }
 

@@ -24,7 +24,9 @@ namespace Netsphere.Server.Game.GameRules
         public override GameRule GameRule => GameRule.Captain;
         public override bool HasHalfTime => false;
         public override bool HasTimeLimit => false;
-        public int CurrentRound => (int)TeamManager.Sum(x => x.Value.Score);
+        public int CurrentRound => (int)TeamManager.Sum(x => x.Value.Score) + 1;
+        public float AlphaHealth { get; private set; }
+        public float BetaHealth { get; private set; }
 
         public event EventHandler RoundEnded;
 
@@ -283,8 +285,8 @@ namespace Netsphere.Server.Game.GameRules
             var beta = This.TeamManager[TeamId.Beta];
             var numAlpha = alpha.PlayersPlaying.Count();
             var numBeta = beta.PlayersPlaying.Count();
-            var alphaHealth = BaseCaptainHealth;
-            var betaHealth = BaseCaptainHealth;
+            This.AlphaHealth = BaseCaptainHealth;
+            This.BetaHealth = BaseCaptainHealth;
 
             // Scale health based on team size
             // The total amount of health of a team is always equal
@@ -293,19 +295,19 @@ namespace Netsphere.Server.Game.GameRules
             // e.g. alpha is winning: 700 health - alpha is losing: 800 health
             if (numAlpha > numBeta)
             {
-                betaHealth = numAlpha * BaseCaptainHealth / numBeta;
+                This.BetaHealth = numAlpha * BaseCaptainHealth / numBeta;
                 if (beta.Score > alpha.Score)
-                    betaHealth = MathF.Floor(betaHealth / 100) * 100;
+                    This.BetaHealth = MathF.Floor(This.BetaHealth / 100) * 100;
                 else
-                    betaHealth = MathF.Ceiling(betaHealth / 100) * 100;
+                    This.BetaHealth = MathF.Ceiling(This.BetaHealth / 100) * 100;
             }
             else if (numBeta > numAlpha)
             {
-                alphaHealth = numBeta * BaseCaptainHealth / numAlpha;
+                This.AlphaHealth = numBeta * BaseCaptainHealth / numAlpha;
                 if (alpha.Score > beta.Score)
-                    alphaHealth = MathF.Floor(alphaHealth / 100) * 100;
+                    This.AlphaHealth = MathF.Floor(This.AlphaHealth / 100) * 100;
                 else
-                    alphaHealth = MathF.Ceiling(alphaHealth / 100) * 100;
+                    This.AlphaHealth = MathF.Ceiling(This.AlphaHealth / 100) * 100;
             }
 
             foreach (var plr in This.TeamManager.PlayersPlaying)
@@ -313,13 +315,15 @@ namespace Netsphere.Server.Game.GameRules
                 GetScore(plr).IsCaptain = true;
                 plr.Session.Send(new CaptainRoundCaptainLifeInfoAckMessage(
                     This.TeamManager.PlayersPlaying
-                        .Select(x => new CaptainLifeDto(x.Account.Id, x.Team.Id == TeamId.Alpha ? alphaHealth : betaHealth))
+                        .Select(x => new CaptainLifeDto(
+                            x.Account.Id, x.Team.Id == TeamId.Alpha ? This.AlphaHealth : This.BetaHealth
+                        ))
                         .ToArray()
                 ));
                 plr.Session.Send(new GameEventMessageAckMessage(GameEventMessage.ResetRound, 0, 0, 0, string.Empty));
                 plr.Session.Send(new CaptainCurrentRoundInfoAckMessage(
-                    This.TeamManager[TeamId.Alpha].Score,
-                    This.TeamManager[TeamId.Beta].Score
+                    This.CurrentRound,
+                    This.StateMachine.RoundTime
                 ));
             }
 
