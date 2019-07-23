@@ -277,6 +277,7 @@ namespace Netsphere.Server.Game.GameRules
             if (This.StateMachine.GameState != GameState.Playing)
                 return;
 
+            This.StateMachine.ResetRoundTimer();
             This._roundEndedCancellationTokenSource = new CancellationTokenSource();
             var alpha = This.TeamManager[TeamId.Alpha];
             var beta = This.TeamManager[TeamId.Beta];

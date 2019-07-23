@@ -135,6 +135,11 @@ namespace Netsphere.Server.Game
             return true;
         }
 
+        public void ResetRoundTimer()
+        {
+            _roundStartTime = DateTimeOffset.Now;
+        }
+
         private GameState GetGameState()
         {
             if (_stateMachine.IsInState(GameRuleState.Waiting))
