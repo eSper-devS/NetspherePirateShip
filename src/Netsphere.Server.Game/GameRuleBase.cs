@@ -64,6 +64,10 @@ namespace Netsphere.Server.Game
             return Room.Players.Values.Select(CreateBriefingPlayer).ToArray();
         }
 
+        protected internal virtual void OnPlayerIntrude(Player plr)
+        {
+        }
+
         protected internal virtual void OnResult()
         {
             var briefing = Room.GetBriefing();

@@ -517,6 +517,7 @@ namespace Netsphere.Server.Game.Handlers
                     session.Send(new GameRefreshGameRuleInfoAckMessage(
                         gameState, room.GameRule.StateMachine.TimeState, room.GameRule.StateMachine.RoundTime
                     ));
+                    room.GameRule.OnPlayerIntrude(plr);
                     break;
             }
 

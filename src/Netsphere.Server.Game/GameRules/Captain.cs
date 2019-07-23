@@ -188,6 +188,14 @@ namespace Netsphere.Server.Game.GameRules
             CheckCaptains();
         }
 
+        protected internal override void OnPlayerIntrude(Player plr)
+        {
+            plr.Session.Send(new CaptainCurrentRoundInfoAckMessage(
+                CurrentRound,
+                StateMachine.RoundTime
+            ));
+        }
+
         private void OnGameStateChanged(object sender, EventArgs e)
         {
             switch (StateMachine.GameState)
