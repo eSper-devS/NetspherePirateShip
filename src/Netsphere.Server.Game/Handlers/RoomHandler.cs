@@ -498,22 +498,26 @@ namespace Netsphere.Server.Game.Handlers
                 return true;
 
             plr.IsLoading = false;
-            room.Broadcast(new RoomGameEndLoadingAckMessage(plr.Account.Id));
 
-            if (room.Players.Values.Where(x => x.State == PlayerState.Waiting).All(x => !x.IsLoading))
-                room.GameRule.StateMachine.StartGame();
-
-            if (gameState == GameState.Playing)
+            switch (gameState)
             {
-                plr.CharacterStartPlayTime[plr.CharacterManager.CurrentSlot] = DateTimeOffset.Now;
-                plr.StartPlayTime = DateTimeOffset.Now;
-                plr.State = plr.Mode == PlayerGameMode.Normal
-                    ? PlayerState.Alive
-                    : PlayerState.Spectating;
-                session.Send(new RoomGameStartAckMessage());
-                session.Send(new GameRefreshGameRuleInfoAckMessage(
-                    gameState, room.GameRule.StateMachine.TimeState, room.GameRule.StateMachine.RoundTime
-                ));
+                case GameState.Loading:
+                    room.Broadcast(new RoomGameEndLoadingAckMessage(plr.Account.Id));
+                    if (room.Players.Values.Where(x => x.State == PlayerState.Waiting).All(x => !x.IsLoading))
+                        room.GameRule.StateMachine.StartGame();
+                    break;
+
+                case GameState.Playing:
+                    plr.CharacterStartPlayTime[plr.CharacterManager.CurrentSlot] = DateTimeOffset.Now;
+                    plr.StartPlayTime = DateTimeOffset.Now;
+                    plr.State = plr.Mode == PlayerGameMode.Normal
+                        ? PlayerState.Alive
+                        : PlayerState.Spectating;
+                    session.Send(new RoomGameStartAckMessage());
+                    session.Send(new GameRefreshGameRuleInfoAckMessage(
+                        gameState, room.GameRule.StateMachine.TimeState, room.GameRule.StateMachine.RoundTime
+                    ));
+                    break;
             }
 
             return true;
