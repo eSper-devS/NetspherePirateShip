@@ -236,10 +236,10 @@ namespace Netsphere.Server.Game
                     }
 
                     room.Broadcast(new GameChangeStateAckMessage(GameState.Playing));
-                    room.Broadcast(_gameRule.HasHalfTime
-                        ? new GameChangeSubStateAckMessage(GameTimeState.FirstHalf)
-                        : new GameChangeSubStateAckMessage(GameTimeState.None)
-                    );
+
+                    if (_gameRule.HasHalfTime)
+                        room.Broadcast(new GameChangeSubStateAckMessage(GameTimeState.FirstHalf));
+
                     room.BroadcastBriefing();
 
                     if (_hasTimeLimit)
