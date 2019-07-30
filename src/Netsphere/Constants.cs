@@ -626,4 +626,52 @@ namespace Netsphere
         Map = 1,
         ModeAndMap = 2
     }
+
+    public enum ClanMemberState : uint
+    {
+        None = 0,
+        JoinRequested = 1,
+        Joined = 2
+    }
+
+    public enum ClanRole : uint
+    {
+        Master = 1,
+        TemporaryMaster = 2,
+        Staff = 3,
+        Regular = 4,
+        Normal = 5,
+        BadManner = 6,
+        AClass = 7,
+        BClass = 8,
+        CClass = 9
+    }
+
+    public enum ClubArea : uint
+    {
+        Europe = 1,
+        Germany = 2,
+        France = 3,
+        Spain = 4,
+        Italy = 5,
+        Russia = 6,
+        England = 7,
+        NorthAmerica = 8,
+        LatinAmerica = 9
+    }
+
+    public enum ClubActivity : uint
+    {
+        Fellowship = 1,
+        ClanBattle = 2,
+        Meeting = 3,
+        KnowHowTransfer = 4
+    }
+
+    public enum ClubClass : uint
+    {
+        A = 0,
+        B = 1,
+        C = 2
+    }
 }

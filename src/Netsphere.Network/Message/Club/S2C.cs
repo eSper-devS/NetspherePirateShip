@@ -139,46 +139,46 @@ namespace Netsphere.Network.Message.Club
     public class ClubInfoAckMessage : IClubMessage
     {
         [BlubMember(0)]
-        public int Unk1 { get; set; }
+        public int ClanId { get; set; }
 
         [BlubMember(1)]
-        public string Unk2 { get; set; }
+        public string ClanIcon { get; set; }
 
         [BlubMember(2)]
-        public string Unk3 { get; set; }
+        public string ClanName { get; set; }
 
         [BlubMember(3)]
-        public int Unk4 { get; set; }
+        public int MemberCount { get; set; }
 
         [BlubMember(4)]
-        public string Unk5 { get; set; }
+        public string OwnerName { get; set; }
 
         [BlubMember(5)]
-        public string Unk6 { get; set; }
+        public string CreationDate { get; set; }
 
         [BlubMember(6)]
-        public int Unk7 { get; set; }
+        public ClubArea Area { get; set; }
 
         [BlubMember(7)]
-        public int Unk8 { get; set; }
+        public ClubActivity Activity { get; set; }
 
         [BlubMember(8)]
-        public int Unk9 { get; set; }
+        public int Wins { get; set; }
 
         [BlubMember(9)]
-        public int Unk10 { get; set; }
+        public int Losses { get; set; }
 
         [BlubMember(10)]
-        public int Unk11 { get; set; }
+        public ClubClass Class { get; set; }
 
         [BlubMember(11)]
         public int Unk12 { get; set; }
 
         [BlubMember(12)]
-        public string Unk13 { get; set; }
+        public string Description { get; set; }
 
         [BlubMember(13)]
-        public string Unk14 { get; set; }
+        public string Announcement { get; set; }
 
         [BlubMember(14)]
         public int Unk15 { get; set; }
@@ -286,22 +286,22 @@ namespace Netsphere.Network.Message.Club
     public class ClubMyInfoAckMessage : IClubMessage
     {
         [BlubMember(0)]
-        public int Unk1 { get; set; }
+        public uint ClanId { get; set; }
 
         [BlubMember(1)]
-        public string Unk2 { get; set; }
+        public string ClanIcon { get; set; }
 
         [BlubMember(2)]
-        public string Unk3 { get; set; }
+        public string ClanName { get; set; }
 
         [BlubMember(3)]
-        public int Unk4 { get; set; }
+        public ClanMemberState State { get; set; }
 
         [BlubMember(4)]
         public int Unk5 { get; set; }
 
         [BlubMember(5)]
-        public int Unk6 { get; set; }
+        public ClanRole Role { get; set; }
 
         [BlubMember(6)]
         public int Unk7 { get; set; }
@@ -310,19 +310,19 @@ namespace Netsphere.Network.Message.Club
         public int Unk8 { get; set; }
 
         [BlubMember(8)]
-        public int Unk9 { get; set; }
+        public int LeaguePointWin { get; set; }
 
         [BlubMember(9)]
-        public int Unk10 { get; set; }
+        public int LeaguePointLose { get; set; }
 
         [BlubMember(10)]
-        public int Unk11 { get; set; }
+        public int ContributionPointWin { get; set; }
 
         [BlubMember(11)]
-        public int Unk12 { get; set; }
+        public int ContributionPointLose { get; set; }
 
         [BlubMember(12)]
-        public byte Unk13 { get; set; }
+        public bool Unk13 { get; set; }
     }
 
     [BlubContract]
