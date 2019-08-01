@@ -1,4 +1,4 @@
-# NetspherePirates [![Build status](https://gitlab.com/NetspherePirates/netspherepirates/badges/dev/pipeline.svg)](https://gitlab.com/NetspherePirates/netspherepirates/pipelines)
+# NetspherePirates [![Build status](https://gitlab.com/NetspherePirates/netspherepirates/badges/feature/clans/pipeline.svg)](https://gitlab.com/NetspherePirates/netspherepirates/pipelines)
 Experimental S4 League server emulator for EU v1267 - Season 8.
 
 ### Requirements
