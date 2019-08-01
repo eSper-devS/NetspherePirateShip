@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Microsoft.Extensions.Options;
@@ -14,6 +13,7 @@ namespace Netsphere.Server.Game.GameRules
 
         public override GameRule GameRule => GameRule.BattleRoyal;
         public override bool HasHalfTime => false;
+        public override bool HasTimeLimit => true;
         public virtual Player FirstPlace
         {
             get => _firstPlace;
@@ -24,7 +24,7 @@ namespace Netsphere.Server.Game.GameRules
 
                 _firstPlace = value;
                 if (StateMachine.GameState == GameState.Playing)
-                    Room.Broadcast(new SGameRuleChangeTheFirstAckMessage(_firstPlace?.Account.Id ?? 0));
+                    Room.Broadcast(new FreeAllForChangeTheFirstAckMessage(_firstPlace?.Account.Id ?? 0));
             }
         }
 
@@ -39,8 +39,8 @@ namespace Netsphere.Server.Game.GameRules
         {
             base.Initialize(room);
 
-            var playersPerTeam = Room.Options.MatchKey.PlayerLimit / 2;
-            var spectatorsPerTeam = Room.Options.MatchKey.SpectatorLimit / 2;
+            var playersPerTeam = Room.Options.PlayerLimit / 2;
+            var spectatorsPerTeam = Room.Options.SpectatorLimit / 2;
             Room.TeamManager.Add(TeamId.Alpha, playersPerTeam, spectatorsPerTeam);
             Room.TeamManager.Add(TeamId.Beta, playersPerTeam, spectatorsPerTeam);
         }

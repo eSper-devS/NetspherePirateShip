@@ -1,14 +1,12 @@
 using System;
 using System.Collections.Immutable;
 using System.Linq;
-using System.Threading.Tasks;
-using ExpressMapper.Extensions;
+using Logging;
 using Netsphere.Database.Game;
 using Netsphere.Database.Helpers;
-using Netsphere.Network.Data.Game;
-using Netsphere.Network.Message.Game;
 using Netsphere.Server.Game.Data;
 using Netsphere.Server.Game.Services;
+using Newtonsoft.Json;
 
 namespace Netsphere.Server.Game
 {
@@ -16,7 +14,8 @@ namespace Netsphere.Server.Game
     {
         private readonly GameDataService _gameDataService;
         private int _durability;
-        private uint _count;
+        private uint _enchantMP;
+        private uint _enchantLevel;
 
         public PlayerInventory Inventory { get; }
 
@@ -26,24 +25,29 @@ namespace Netsphere.Server.Game
         public ItemPeriodType PeriodType { get; }
         public ushort Period { get; }
         public byte Color { get; }
-        public uint Effect { get; }
+        public PlayerItemEffectCollection Effects { get; }
         public DateTimeOffset PurchaseDate { get; }
         public int Durability
         {
             get => _durability;
             set => SetIfChanged(ref _durability, value);
         }
-        public uint Count
-        {
-            get => _count;
-            set => SetIfChanged(ref _count, value);
-        }
         public DateTimeOffset ExpireDate =>
             PeriodType == ItemPeriodType.Days ? PurchaseDate.AddDays(Period) : DateTimeOffset.MinValue;
+        public uint EnchantMP
+        {
+            get => _enchantMP;
+            set => SetIfChanged(ref _enchantMP, value);
+        }
+        public uint EnchantLevel
+        {
+            get => _enchantLevel;
+            set => SetIfChanged(ref _enchantLevel, value);
+        }
 
         public CharacterInventory CharacterInventory { get; internal set; }
 
-        internal PlayerItem(GameDataService gameDataService, PlayerInventory inventory, PlayerItemEntity entity)
+        internal PlayerItem(ILogger logger, GameDataService gameDataService, PlayerInventory inventory, PlayerItemEntity entity)
         {
             _gameDataService = gameDataService;
             Inventory = inventory;
@@ -59,17 +63,37 @@ namespace Netsphere.Server.Game
             PeriodType = price.PeriodType;
             Period = price.Period;
             Color = entity.Color;
-            Effect = entity.Effect;
+
+            var effects = Array.Empty<uint>();
+            if (!string.IsNullOrWhiteSpace(entity.Effects))
+            {
+                try
+                {
+                    effects = JsonConvert.DeserializeObject<uint[]>(entity.Effects);
+                }
+                catch (Exception ex)
+                {
+                    logger.Warning(
+                        ex,
+                        "Unable to load effects from item={ItemId} effects={Effects}",
+                        entity.Id,
+                        entity.Effects
+                    );
+                }
+            }
+
+            Effects = new PlayerItemEffectCollection(this, effects);
             PurchaseDate = DateTimeOffset.FromUnixTimeSeconds(entity.PurchaseDate);
             _durability = entity.Durability;
-            _count = (uint)entity.Count;
+            _enchantMP = (uint)entity.MP;
+            _enchantLevel = (uint)entity.MPLevel;
 
             SetExistsState(true);
         }
 
         internal PlayerItem(GameDataService gameDataService, PlayerInventory inventory, long id,
             ShopItemInfo itemInfo, ShopPrice price,
-            byte color, uint effect, DateTimeOffset purchaseDate, uint count)
+            byte color, uint[] effects, DateTimeOffset purchaseDate)
         {
             _gameDataService = gameDataService;
             Inventory = inventory;
@@ -79,18 +103,17 @@ namespace Netsphere.Server.Game
             PeriodType = price.PeriodType;
             Period = price.Period;
             Color = color;
-            Effect = effect;
+            Effects = new PlayerItemEffectCollection(this, effects);
             PurchaseDate = purchaseDate;
             _durability = price.Durability;
-            _count = count;
         }
 
-        public ItemEffect GetItemEffect()
+        public ItemEffect[] GetItemEffects()
         {
-            if (Effect == 0)
+            if (Effects.Count == 0)
                 return null;
 
-            return _gameDataService.Effects.GetValueOrDefault(Effect);
+            return Effects.Select(x => _gameDataService.Effects.GetValueOrDefault(x)).ToArray();
         }
 
         public ShopItem GetShopItem()
@@ -108,7 +131,7 @@ namespace Netsphere.Server.Game
             return GetShopItemInfo().PriceGroup.GetPrice(PeriodType, Period);
         }
 
-        public void LoseDurability(int loss)
+        public int LoseDurability(int loss)
         {
             if (loss < 0)
                 throw new ArgumentOutOfRangeException(nameof(loss));
@@ -116,15 +139,12 @@ namespace Netsphere.Server.Game
             if (Inventory.Player.Room == null)
                 throw new InvalidOperationException("Player is not inside a room");
 
-            if (Durability == -1)
-                return;
+            if (Durability == -1 || loss == 0)
+                return 0;
 
+            loss = Math.Min(Durability, loss);
             Durability -= loss;
-            if (Durability < 0)
-                Durability = 0;
-
-            Inventory.Player.Session.Send(new SItemDurabilityInfoAckMessage(
-                new[] { this.Map<PlayerItem, ItemDurabilityInfoDto>() }));
+            return loss;
         }
 
         // TODO Calculate refund/repair cost

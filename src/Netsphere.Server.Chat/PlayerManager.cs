@@ -4,8 +4,10 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using BlubLib.Collections.Concurrent;
+using BlubLib.Collections.Generic;
 using Logging;
 using Netsphere.Database;
+using Netsphere.Network.Message.Chat;
 using ProudNet;
 
 namespace Netsphere.Server.Chat
@@ -99,13 +101,17 @@ namespace Netsphere.Server.Chat
                         await db.SaveChangesAsync();
                     }
 
+                    _players.Values.Where(x => x.Channel == null).ForEach(x =>
+                        x.Session.Send(new ChannelLeavePlayerAckMessage(session.Player.Account.Id))
+                    );
+
                     OnPlayerDisconnected(plr);
                     plr.OnDisconnected();
                 }
             }
             catch (Exception ex)
             {
-                e.Session.Channel.Pipeline.FireExceptionCaught(ex);
+                plr.AddContextToLogger(_logger).Error(ex, "Disconnect error");
             }
 
             if (plr != null)

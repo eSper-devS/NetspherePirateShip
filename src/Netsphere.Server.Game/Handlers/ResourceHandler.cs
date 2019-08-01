@@ -11,7 +11,7 @@ using ProudNet;
 
 namespace Netsphere.Server.Game.Handlers
 {
-    internal class ResourceHandler : IHandle<CNewShopUpdateCheckReqMessage>
+    internal class ResourceHandler : IHandle<NewShopUpdateCheckReqMessage>
     {
         private readonly GameDataService _gameDataService;
         private readonly BlubSerializer _serializer;
@@ -30,7 +30,7 @@ namespace Netsphere.Server.Game.Handlers
         }
 
         [Inline]
-        public async Task<bool> OnHandle(MessageContext context, CNewShopUpdateCheckReqMessage message)
+        public async Task<bool> OnHandle(MessageContext context, NewShopUpdateCheckReqMessage message)
         {
             var session = context.Session;
 
@@ -46,7 +46,8 @@ namespace Netsphere.Server.Game.Handlers
             if (message.ItemVersion != version)
                 flags |= ShopResourceType.Item;
 
-            session.Send(new SNewShopUpdateCheckAckMessage
+
+            session.Send(new NewShopUpdateCheckAckMessage
             {
                 PriceVersion = version,
                 EffectVersion = version,
@@ -69,7 +70,7 @@ namespace Netsphere.Server.Game.Handlers
                     var data = w.ToArray();
                     var decompressedLength = data.Length;
                     var compressed = data.CompressLZO();
-                    session.Send(new SNewShopUpdateInfoAckMessage(pair.Key,
+                    session.Send(new NewShopUpdateInfoAckMessage(pair.Key,
                         compressed, (uint)compressed.Length, (uint)decompressedLength, version));
                 }
             }

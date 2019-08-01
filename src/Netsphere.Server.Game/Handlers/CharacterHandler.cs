@@ -9,7 +9,7 @@ using ProudNet;
 namespace Netsphere.Server.Game.Handlers
 {
     internal class CharacterHandler
-        : IHandle<CCreateCharacterReqMessage>, IHandle<CDeleteCharacterReqMessage>, IHandle<CSelectCharacterReqMessage>
+        : IHandle<CharacterCreateReqMessage>, IHandle<CharacterDeleteReqMessage>, IHandle<CharacterSelectReqMessage>
     {
         private readonly ILogger _logger;
         private readonly EquipValidator _equipValidator;
@@ -22,7 +22,7 @@ namespace Netsphere.Server.Game.Handlers
 
         [Firewall(typeof(MustBeLoggedIn))]
         [Inline]
-        public async Task<bool> OnHandle(MessageContext context, CCreateCharacterReqMessage message)
+        public async Task<bool> OnHandle(MessageContext context, CharacterCreateReqMessage message)
         {
             var session = context.GetSession<Session>();
             var plr = session.Player;
@@ -36,7 +36,7 @@ namespace Netsphere.Server.Game.Handlers
             if (result != CharacterCreateResult.Success)
             {
                 logger.Information("Failed to create character result={Result}", result);
-                session.Send(new SServerResultInfoAckMessage(ServerResult.CreateCharacterFailed));
+                session.Send(new ServerResultAckMessage(ServerResult.CreateCharacterFailed));
             }
 
             return true;
@@ -44,20 +44,20 @@ namespace Netsphere.Server.Game.Handlers
 
         [Firewall(typeof(MustBeLoggedIn))]
         [Inline]
-        public async Task<bool> OnHandle(MessageContext context, CDeleteCharacterReqMessage message)
+        public async Task<bool> OnHandle(MessageContext context, CharacterDeleteReqMessage message)
         {
             var session = context.GetSession<Session>();
             var plr = session.Player;
 
             if (!plr.CharacterManager.Remove(message.Slot))
-                session.Send(new SServerResultInfoAckMessage(ServerResult.DeleteCharacterFailed));
+                session.Send(new ServerResultAckMessage(ServerResult.DeleteCharacterFailed));
 
             return true;
         }
 
         [Firewall(typeof(MustBeLoggedIn))]
         [Inline]
-        public async Task<bool> OnHandle(MessageContext context, CSelectCharacterReqMessage message)
+        public async Task<bool> OnHandle(MessageContext context, CharacterSelectReqMessage message)
         {
             var session = context.GetSession<Session>();
             var plr = session.Player;
@@ -66,14 +66,14 @@ namespace Netsphere.Server.Game.Handlers
             if (plr.Room != null && plr.State != PlayerState.Lobby &&
                 plr.Room.GameRule.StateMachine.TimeState != GameTimeState.HalfTime)
             {
-                session.Send(new SServerResultInfoAckMessage(ServerResult.SelectCharacterFailed));
+                session.Send(new ServerResultAckMessage(ServerResult.SelectCharacterFailed));
                 return true;
             }
 
             // Cant switch characters when ready
             if (plr.Room != null && plr.IsReady)
             {
-                session.Send(new SServerResultInfoAckMessage(ServerResult.SelectCharacterFailed));
+                session.Send(new ServerResultAckMessage(ServerResult.SelectCharacterFailed));
                 return true;
             }
 
@@ -84,13 +84,13 @@ namespace Netsphere.Server.Game.Handlers
                 var character = plr.CharacterManager[message.Slot];
                 if (character != null && !_equipValidator.IsValid(character))
                 {
-                    session.Send(new SServerResultInfoAckMessage(ServerResult.WearingUnusableItem));
+                    session.Send(new ServerResultAckMessage(ServerResult.WearingUnusableItem));
                     return true;
                 }
             }
 
             if (!plr.CharacterManager.Select(message.Slot))
-                session.Send(new SServerResultInfoAckMessage(ServerResult.SelectCharacterFailed));
+                session.Send(new ServerResultAckMessage(ServerResult.SelectCharacterFailed));
 
             return true;
         }

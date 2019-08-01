@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Text;
@@ -14,6 +15,7 @@ using Netsphere.Database;
 using Netsphere.Database.Auth;
 using Netsphere.Database.Game;
 using Netsphere.Network;
+using Netsphere.Network.Data.Game;
 using Netsphere.Network.Message.Game;
 using Netsphere.Server.Game.Rules;
 using Netsphere.Server.Game.Services;
@@ -24,9 +26,8 @@ using Constants = Netsphere.Common.Constants;
 namespace Netsphere.Server.Game.Handlers
 {
     internal class AuthenticationHandler
-        : IHandle<CLoginReqMessage>,
-          IHandle<CCheckNickReqMessage>,
-          IHandle<CCreateNickReqMessage>
+        : IHandle<LoginRequestReqMessage>,
+          IHandle<CharacterFirstCreateReqMessage>
     {
         private readonly ILogger _logger;
         private readonly NetworkOptions _networkOptions;
@@ -58,12 +59,12 @@ namespace Netsphere.Server.Game.Handlers
 
         [Firewall(typeof(MustBeLoggedIn), Invert = true)]
         [Inline]
-        public async Task<bool> OnHandle(MessageContext context, CLoginReqMessage message)
+        public async Task<bool> OnHandle(MessageContext context, LoginRequestReqMessage message)
         {
             var session = context.GetSession<Session>();
-            var logger = _logger.ForContext(
-                ("RemoteEndPoint", session.RemoteEndPoint.ToString()),
-                ("Message", message.ToJson()));
+            var logger = _logger
+                .ForContext("RemoteEndPoint", session.RemoteEndPoint.ToString())
+                .ForContext("ClientMessage", message, true);
 
             logger.Debug("Login");
 
@@ -72,14 +73,14 @@ namespace Netsphere.Server.Game.Handlers
             {
                 logger.Information("Invalid client version={Version} supported versions are {SupportedVersions}",
                     message.Version.ToString(), string.Join(",", allowedVersions.Select(x => x.ToString())));
-                session.Send(new SLoginAckMessage(GameLoginResult.WrongVersion));
+                session.Send(new LoginReguestAckMessage(GameLoginResult.WrongVersion));
                 await session.CloseAsync();
                 return true;
             }
 
             if (_sessionManager.Sessions.Count >= _networkOptions.MaxSessions)
             {
-                session.Send(new SLoginAckMessage(GameLoginResult.ServerFull));
+                session.Send(new LoginReguestAckMessage(GameLoginResult.ServerFull));
                 return true;
             }
 
@@ -88,7 +89,7 @@ namespace Netsphere.Server.Game.Handlers
             if (!sessionId.HasValue || !sessionId.Value.Equals(message.SessionId))
             {
                 logger.Information("Invalid session id");
-                session.Send(new SLoginAckMessage(GameLoginResult.SessionTimeout));
+                session.Send(new LoginReguestAckMessage(GameLoginResult.SessionTimeout));
                 return true;
             }
 
@@ -104,7 +105,7 @@ namespace Netsphere.Server.Game.Handlers
             if (accountEntity == null)
             {
                 logger.Information("Wrong login");
-                session.Send(new SLoginAckMessage(GameLoginResult.SessionTimeout));
+                session.Send(new LoginReguestAckMessage(GameLoginResult.SessionTimeout));
                 return true;
             }
 
@@ -118,7 +119,7 @@ namespace Netsphere.Server.Game.Handlers
                     unbanDate = DateTimeOffset.FromUnixTimeSeconds(ban.Date + (ban.Duration ?? 0));
 
                 logger.Information("Account is banned until {UnbanDate}", unbanDate);
-                session.Send(new SLoginAckMessage(GameLoginResult.SessionTimeout));
+                session.Send(new LoginReguestAckMessage(GameLoginResult.SessionTimeout));
                 return true;
             }
 
@@ -140,7 +141,7 @@ namespace Netsphere.Server.Game.Handlers
                 // TODO Check if logged in on another server
 
                 logger.Information("Account is already logged in");
-                session.Send(new SLoginAckMessage(GameLoginResult.TerminateOtherConnection));
+                session.Send(new LoginReguestAckMessage(GameLoginResult.TerminateOtherConnection));
                 return true;
             }
 
@@ -149,7 +150,6 @@ namespace Netsphere.Server.Game.Handlers
                 var plr = await db.Players
                     .Include(x => x.Characters)
                     .Include(x => x.Items)
-                    .Include(x => x.Licenses)
                     .FirstOrDefaultAsync(x => x.Id == accountEntity.Id);
 
                 if (plr == null)
@@ -183,56 +183,133 @@ namespace Netsphere.Server.Game.Handlers
             var result = string.IsNullOrWhiteSpace(account.Nickname)
                 ? GameLoginResult.ChooseNickname
                 : GameLoginResult.OK;
-            session.Send(new SLoginAckMessage(result, account.Id));
+            session.Send(new LoginReguestAckMessage(result, account.Id));
 
             if (!string.IsNullOrWhiteSpace(account.Nickname))
                 await session.Player.SendAccountInformation();
+
             return true;
         }
 
-        [Firewall(typeof(MustNotHaveANickname))]
-        public async Task<bool> OnHandle(MessageContext context, CCheckNickReqMessage message)
+        [Inline]
+        public async Task<bool> OnHandle(MessageContext context, CharacterFirstCreateReqMessage message)
         {
-            var session = context.Session;
-            var logger = _logger.ForContext(
-                ("RemoteEndPoint", session.RemoteEndPoint.ToString()),
-                ("Nickname", message.Nickname));
+            var session = context.GetSession<Session>();
+            var plr = session.Player;
 
-            var available = await IsNickAvailableAsync(message.Nickname);
-            if (!available)
-                logger.Debug("Nickname not available");
+            if (plr == null)
+                return true;
 
-            session.Send(new SCheckNickAckMessage(!available));
-            return true;
-        }
+            var logger = plr.AddContextToLogger(_logger);
 
-        [Firewall(typeof(MustNotHaveANickname))]
-        public async Task<bool> OnHandle(MessageContext context, CCreateNickReqMessage message)
-        {
-            var session = (Session)context.Session;
-            var logger = _logger.ForContext(
-                ("RemoteEndPoint", session.RemoteEndPoint.ToString()),
-                ("Nickname", message.Nickname));
+            if (plr.CharacterManager.Count > 0 && !string.IsNullOrWhiteSpace(plr.Account.Nickname))
+                return true;
 
-            var available = await IsNickAvailableAsync(message.Nickname);
-            if (!available)
+            logger.Information("Creating first character {@Message}", message.ToJson());
+
+            var items = new List<PlayerItem>();
+            if (plr.CharacterManager.Count == 0)
             {
-                logger.Debug("Nickname not available");
-                session.Send(new SCheckNickAckMessage(true));
+                var (_, result) = plr.CharacterManager.Create(
+                    0, // Slot
+                    message.Style.Gender,
+                    0, 0, 0, 0, 0, 0
+                );
+
+                if (result != CharacterCreateResult.Success)
+                {
+                    logger.Information("Failed to create first character result={Result}", result);
+                    session.Send(new ServerResultAckMessage(ServerResult.CreateCharacterFailed));
+                    return true;
+                }
+
+                IEnumerable<StartItemEntity> startItems;
+                using (var db = _databaseService.Open<GameContext>())
+                {
+                    var securityLevel = (byte)plr.Account.SecurityLevel;
+                    startItems = await db.StartItems.Where(x => x.RequiredSecurityLevel <= securityLevel).ToArrayAsync();
+                }
+
+                foreach (var startItem in startItems)
+                {
+                    var item = _gameDataService.ShopItems.Values.First(group =>
+                        group.GetItemInfo(startItem.ShopItemInfoId) != null);
+                    var itemInfo = item.GetItemInfo(startItem.ShopItemInfoId);
+
+                    if (itemInfo == null)
+                    {
+                        _logger.Warning("Cant find ShopItemInfo for Start item {startItemId} - Forgot to reload the cache?",
+                            startItem.Id);
+                        continue;
+                    }
+
+                    var price = itemInfo.PriceGroup.GetPrice(startItem.ShopPriceId);
+                    if (price == null)
+                    {
+                        _logger.Warning("Cant find ShopPrice for Start item {startItemId} - Forgot to reload the cache?",
+                            startItem.Id);
+                        continue;
+                    }
+
+                    var color = startItem.Color;
+                    if (color > item.ColorGroup)
+                    {
+                        _logger.Warning("Start item {startItemId} has an invalid color {color}", startItem.Id, color);
+                        color = 0;
+                    }
+
+                    // Only create items the player chose
+                    if (message.Items.Contains(item.ItemNumber))
+                    {
+                        // Check if gender is correct
+                        if (item.Gender == Gender.Male && message.Style.Gender != CharacterGender.Male ||
+                            item.Gender == Gender.Female && message.Style.Gender != CharacterGender.Female)
+                        {
+                            continue;
+                        }
+
+                        var playerItem = plr.Inventory.Create(
+                            itemInfo,
+                            price,
+                            color,
+                            itemInfo.EffectGroup.Effects.Select(x => x.Effect).ToArray(),
+                            false
+                        );
+                        items.Add(playerItem);
+                    }
+                }
             }
 
-            session.Player.Account.Nickname = message.Nickname;
-            using (var db = _databaseService.Open<AuthContext>())
+            if (string.IsNullOrWhiteSpace(plr.Account.Nickname))
             {
-                var accountId = (long)session.Player.Account.Id;
-                await db.Accounts
-                    .Where(x => x.Id == accountId)
-                    .UpdateAsync(x => new AccountEntity { Nickname = message.Nickname });
+                var available = await IsNickAvailableAsync(message.Nickname);
+                if (!available)
+                {
+                    logger.Debug("Nickname not available");
+                    session.Send(new NickCheckAckMessage(true));
+                    return true;
+                }
+
+                plr.Account.Nickname = message.Nickname;
+                using (var db = _databaseService.Open<AuthContext>())
+                {
+                    var accountId = (long)plr.Account.Id;
+                    await db.Accounts
+                        .Where(x => x.Id == accountId)
+                        .UpdateAsync(x => new AccountEntity { Nickname = message.Nickname });
+                }
+
+                plr.OnNicknameCreated(message.Nickname);
             }
 
-            session.Send(new SServerResultInfoAckMessage(ServerResult.CreateNicknameSuccess));
-            await session.Player.SendAccountInformation();
-            session.Player.OnNicknameCreated(message.Nickname);
+            if (items.Count > 0)
+            {
+                session.Send(new RequitalGiveItemResultAckMessage(
+                    items.Select(x => new RequitalGiveItemResultDto(x.ItemNumber, 0)).ToArray()
+                ));
+            }
+
+            await plr.SendAccountInformation();
             return true;
         }
 

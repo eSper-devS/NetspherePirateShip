@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using BlubLib.Collections.Generic;
 using ExpressMapper.Extensions;
 using Netsphere.Network.Data.Chat;
 using Netsphere.Network.Message.Chat;
@@ -10,6 +11,7 @@ namespace Netsphere.Server.Chat
 {
     public class Channel
     {
+        private readonly PlayerManager _playerManager;
         private readonly IDictionary<ulong, Player> _players = new ConcurrentDictionary<ulong, Player>();
 
         public uint Id { get; }
@@ -28,8 +30,9 @@ namespace Netsphere.Server.Chat
             PlayerLeft?.Invoke(this, new ChannelEventArgs(this, plr));
         }
 
-        public Channel(uint id)
+        public Channel(uint id, PlayerManager playerManager)
         {
+            _playerManager = playerManager;
             Id = id;
         }
 
@@ -37,7 +40,13 @@ namespace Netsphere.Server.Chat
         {
             _players.Add(plr.Account.Id, plr);
             plr.Channel = this;
-            Broadcast(new SChannelEnterPlayerAckMessage(plr.Map<Player, UserDataWithNickDto>()));
+            Broadcast(new ChannelEnterPlayerAckMessage(plr.Map<Player, PlayerInfoShortDto>()));
+            plr.Session.Send(new ChannelPlayerListAckMessage(
+                Players.Values.Where(x => x.RoomId == 0).Select(x => x.Map<Player, PlayerInfoShortDto>()).ToArray()
+            ));
+            _playerManager.Where(x => x.Channel == null).ForEach(x =>
+                x.Session.Send(new ChannelLeavePlayerAckMessage(plr.Account.Id))
+            );
             OnPlayerJoined(plr);
         }
 
@@ -46,7 +55,13 @@ namespace Netsphere.Server.Chat
             _players.Remove(plr.Account.Id);
             plr.Channel = null;
             plr.SentPlayerList = false;
-            Broadcast(new SChannelLeavePlayerAckMessage(plr.Account.Id));
+            Broadcast(new ChannelLeavePlayerAckMessage(plr.Account.Id));
+            plr.Session.Send(new ChannelPlayerListAckMessage(
+                _playerManager.Where(x => x.Channel == null).Select(x => x.Map<Player, PlayerInfoShortDto>()).ToArray()
+            ));
+            _playerManager.Where(x => x.Channel == null).ForEach(x =>
+                x.Session.Send(new ChannelEnterPlayerAckMessage(plr.Map<Player, PlayerInfoShortDto>()))
+            );
             OnPlayerLeft(plr);
         }
 
@@ -58,7 +73,7 @@ namespace Netsphere.Server.Chat
 
         public void SendChatMessage(Player sender, string message)
         {
-            Broadcast(new SChatMessageAckMessage(ChatType.Channel, sender.Account.Id, sender.Account.Nickname, message), true);
+            Broadcast(new MessageChatAckMessage(ChatType.Channel, sender.Account.Id, sender.Account.Nickname, message), true);
         }
     }
 }

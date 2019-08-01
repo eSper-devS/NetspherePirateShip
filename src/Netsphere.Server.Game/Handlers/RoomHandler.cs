@@ -4,8 +4,8 @@ using System.Threading.Tasks;
 using BlubLib.Collections.Generic;
 using Logging;
 using Microsoft.Extensions.Options;
-using Netsphere.Common;
 using Netsphere.Network;
+using Netsphere.Network.Data.GameRule;
 using Netsphere.Network.Message.Game;
 using Netsphere.Network.Message.GameRule;
 using Netsphere.Server.Game.Rules;
@@ -14,16 +14,16 @@ using ProudNet;
 namespace Netsphere.Server.Game.Handlers
 {
     internal class RoomHandler
-        : IHandle<CMakeRoomReqMessage>, IHandle<CEnterPlayerReqMessage>, IHandle<CGameRoomEnterReqMessage>,
-          IHandle<CJoinTunnelInfoReqMessage>, IHandle<CChangeTeamReqMessage>, IHandle<CPlayerGameModeChangeReqMessage>,
-          IHandle<CMixChangeTeamReqMessage>, IHandle<CBeginRoundReqMessage>, IHandle<CReadyRoundReqMessage>,
-          IHandle<CEventMessageReqMessage>, IHandle<CItemsChangeReqMessage>, IHandle<CAvatarChangeReqMessage>,
-          IHandle<CChangeRuleNotifyReqMessage>, IHandle<CLeavePlayerRequestReqMessage>, IHandle<CAutoMixingTeamReqMessage>,
-          IHandle<CScoreKillReqMessage>,
-          IHandle<CScoreKillAssistReqMessage>, IHandle<CScoreTeamKillReqMessage>, IHandle<CScoreHealAssistReqMessage>,
-          IHandle<CScoreSuicideReqMessage>, IHandle<CScoreGoalReqMessage>, IHandle<CScoreReboundReqMessage>,
-          IHandle<CScoreOffenseReqMessage>, IHandle<CScoreOffenseAssistReqMessage>, IHandle<CScoreDefenseReqMessage>,
-          IHandle<CScoreDefenseAssistReqMessage>, IHandle<CMissionScoreReqMessage>
+        : IHandle<RoomMakeReqMessage>, IHandle<RoomMakeReq2Message>, IHandle<RoomEnterPlayerReqMessage>,
+          IHandle<RoomEnterReqMessage>, IHandle<RoomLeaveReqMessage>, IHandle<RoomInfoRequestReqMessage>,
+          IHandle<RoomTeamChangeReqMessage>, IHandle<RoomPlayModeChangeReqMessage>, IHandle<RoomBeginRoundReq2Message>,
+          IHandle<RoomReadyRoundReq2Message>, IHandle<GameEventMessageReqMessage>, IHandle<RoomItemChangeReqMessage>,
+          IHandle<GameAvatarChangeReqMessage>, IHandle<RoomChangeRuleNotifyReq2Message>, IHandle<RoomLeaveRequestReqMessage>,
+          IHandle<RoomAutoMixingTeamReqMessage>, IHandle<RoomIntrudeRoundReq2Message>, IHandle<GameLoadingSuccessReqMessage>,
+          IHandle<ScoreKillReqMessage>, IHandle<ScoreKillAssistReqMessage>, IHandle<ScoreTeamKillReqMessage>,
+          IHandle<ScoreHealAssistReqMessage>, IHandle<ScoreSuicideReqMessage>, IHandle<ScoreGoalReqMessage>,
+          IHandle<ScoreReboundReqMessage>, IHandle<ScoreOffenseReqMessage>, IHandle<ScoreOffenseAssistReqMessage>,
+          IHandle<ScoreDefenseReqMessage>, IHandle<ScoreDefenseAssistReqMessage>, IHandle<ScoreMissionScoreReqMessage>
     {
         private readonly ILogger<RoomHandler> _logger;
         private readonly EquipValidator _equipValidator;
@@ -37,7 +37,7 @@ namespace Netsphere.Server.Game.Handlers
         }
 
         [Firewall(typeof(MustBeInRoom))]
-        public async Task<bool> OnHandle(MessageContext context, CEnterPlayerReqMessage message)
+        public async Task<bool> OnHandle(MessageContext context, RoomEnterPlayerReqMessage message)
         {
             var session = context.GetSession<Session>();
             var plr = session.Player;
@@ -46,42 +46,67 @@ namespace Netsphere.Server.Game.Handlers
             if (!plr.IsConnectingToRoom)
                 return true;
 
-            room.Broadcast(new SEnterPlayerAckMessage(plr.Account.Id, plr.Account.Nickname, 0, plr.Mode, 0));
-            session.Send(new SChangeMasterAckMessage(plr.Room.Master.Account.Id));
-            session.Send(new SChangeRefeReeAckMessage(plr.Room.Host.Account.Id));
-            plr.Room.BroadcastBriefing();
+            room.Broadcast(new RoomEnterPlayerForBookNameTagsAckMessage(
+                plr.Account.Id,
+                plr.Account.Nickname,
+                plr.TotalExperience,
+                plr.Mode,
+                plr.Team.Id,
+                0,
+                0
+            ));
+            plr.Session.Send(new RoomEnterPlayerInfoListForNameTagAckMessage(
+                room.Players.Values
+                    .Select(x => new NameTagDto(x.Account.Id, 0))
+                    .ToArray()
+            ));
+            session.Send(new RoomChangeMasterAckMessage(room.Master.Account.Id));
+            session.Send(new RoomChangeRefereeAckMessage(room.Host.Account.Id));
+            plr.SendBriefing();
             plr.IsConnectingToRoom = false;
-            plr.Room.OnPlayerJoined(plr);
+            room.OnPlayerJoined(plr);
             return true;
         }
 
         [Firewall(typeof(MustBeInChannel))]
         [Firewall(typeof(MustBeInRoom), Invert = true)]
-        public async Task<bool> OnHandle(MessageContext context, CMakeRoomReqMessage message)
+        public async Task<bool> OnHandle(MessageContext context, RoomMakeReqMessage message)
+        {
+            var session = context.GetSession<Session>();
+            var plr = session.Player;
+            var logger = plr.AddContextToLogger(_logger).ForContext("ClientMessage", message.Room, true);
+
+            logger.Warning("TODO Arcade room creation is not implemented yet");
+            session.Send(new ServerResultAckMessage(ServerResult.FailedToRequestTask));
+            return true;
+        }
+
+        [Firewall(typeof(MustBeInChannel))]
+        [Firewall(typeof(MustBeInRoom), Invert = true)]
+        public async Task<bool> OnHandle(MessageContext context, RoomMakeReq2Message message)
         {
             var session = context.GetSession<Session>();
             var plr = session.Player;
             var channel = plr.Channel;
             var roomMgr = channel.RoomManager;
-            var logger = plr.AddContextToLogger(_logger).ForContext("Message", message.ToJson());
+            var logger = plr.AddContextToLogger(_logger).ForContext("ClientMessage", message.Room, true);
 
-            if (message.Room.MatchKey.GameRule == GameRule.Practice)
-                message.Room.MatchKey.PlayerLimit = 1;
+            if (message.Room.GameRule == GameRule.Practice)
+                message.Room.PlayerLimit = 1;
 
             var (room, createError) = roomMgr.Create(new RoomCreationOptions
             {
                 Name = message.Room.Name,
-                MatchKey = message.Room.MatchKey,
-                TimeLimit = TimeSpan.FromMinutes(message.Room.TimeLimit),
+                GameRule = message.Room.GameRule,
+                Map = message.Room.Map,
+                PlayerLimit = message.Room.PlayerLimit,
+                SpectatorLimit = message.Room.IsSpectatingEnabled ? message.Room.SpectatorLimit : 0,
+                TimeLimit = message.Room.TimeLimit,
                 ScoreLimit = message.Room.ScoreLimit,
                 Password = message.Room.Password,
-                IsFriendly = message.Room.IsFriendly,
-                IsBalanced = message.Room.IsBalanced,
-                MinLevel = message.Room.MinLevel,
-                MaxLevel = message.Room.MaxLevel,
-                EquipLimit = message.Room.EquipLimit,
-                IsNoIntrusion = message.Room.IsNoIntrusion,
-                RelayEndPoint = _appOptions.RelayEndPoint
+                EquipLimit = (int)message.Room.ItemLimit,
+                RelayEndPoint = _appOptions.RelayEndPoint,
+                IsFriendly = message.Room.Settings.HasFlag(RoomSettings.IsFriendly)
             });
 
             switch (createError)
@@ -91,17 +116,17 @@ namespace Netsphere.Server.Game.Handlers
 
                 case RoomCreateError.InvalidGameRule:
                     logger.Warning("Trying to create room with invalid gamerule");
-                    session.Send(new SServerResultInfoAckMessage(ServerResult.FailedToRequestTask));
+                    session.Send(new ServerResultAckMessage(ServerResult.FailedToRequestTask));
                     return true;
 
                 case RoomCreateError.InvalidMap:
                     logger.Warning("Trying to create room with invalid map");
-                    session.Send(new SServerResultInfoAckMessage(ServerResult.FailedToRequestTask));
+                    session.Send(new ServerResultAckMessage(ServerResult.FailedToRequestTask));
                     return true;
 
                 default:
                     logger.Warning("Unknown error={Error} when creating room", createError);
-                    session.Send(new SServerResultInfoAckMessage(ServerResult.FailedToRequestTask));
+                    session.Send(new ServerResultAckMessage(ServerResult.FailedToRequestTask));
                     return true;
             }
 
@@ -112,7 +137,7 @@ namespace Netsphere.Server.Game.Handlers
 
         [Firewall(typeof(MustBeInChannel))]
         [Firewall(typeof(MustBeInRoom), Invert = true)]
-        public async Task<bool> OnHandle(MessageContext context, CGameRoomEnterReqMessage message)
+        public async Task<bool> OnHandle(MessageContext context, RoomEnterReqMessage message)
         {
             var session = context.GetSession<Session>();
             var plr = session.Player;
@@ -122,8 +147,8 @@ namespace Netsphere.Server.Game.Handlers
 
             if (room == null)
             {
-                session.Send(new SServerResultInfoAckMessage(ServerResult.ImpossibleToEnterRoom));
-                session.Send(new SDisposeGameRoomAckMessage(message.RoomId));
+                session.Send(new ServerResultAckMessage(ServerResult.ImpossibleToEnterRoom));
+                session.Send(new RoomDisposeAckMessage(message.RoomId));
                 return true;
             }
 
@@ -131,7 +156,7 @@ namespace Netsphere.Server.Game.Handlers
                 !room.Options.Password.Equals(message.Password) &&
                 !plr.IsInGMMode)
             {
-                session.Send(new SServerResultInfoAckMessage(ServerResult.PasswordError));
+                session.Send(new ServerResultAckMessage(ServerResult.PasswordError));
                 return true;
             }
 
@@ -142,11 +167,11 @@ namespace Netsphere.Server.Game.Handlers
                 case RoomJoinError.RoomFull:
                 case RoomJoinError.KickedPreviously:
                 case RoomJoinError.NoIntrusion:
-                    session.Send(new SServerResultInfoAckMessage(ServerResult.CantEnterRoom));
+                    session.Send(new ServerResultAckMessage(ServerResult.CantEnterRoom));
                     break;
 
                 case RoomJoinError.ChangingRules:
-                    session.Send(new SServerResultInfoAckMessage(ServerResult.RoomChangingRules));
+                    session.Send(new ServerResultAckMessage(ServerResult.RoomChangingRules));
                     break;
             }
 
@@ -154,7 +179,7 @@ namespace Netsphere.Server.Game.Handlers
         }
 
         [Firewall(typeof(MustBeInRoom))]
-        public Task<bool> OnHandle(MessageContext context, CJoinTunnelInfoReqMessage message)
+        public Task<bool> OnHandle(MessageContext context, RoomLeaveReqMessage message)
         {
             var session = context.GetSession<Session>();
             var plr = session.Player;
@@ -164,9 +189,36 @@ namespace Netsphere.Server.Game.Handlers
             return Task.FromResult(true);
         }
 
+        [Firewall(typeof(MustBeInChannel))]
+        public async Task<bool> OnHandle(MessageContext context, RoomInfoRequestReqMessage message)
+        {
+            var session = context.GetSession<Session>();
+            var plr = session.Player;
+            var channel = plr.Channel;
+            var room = channel.RoomManager[message.RoomId];
+
+            if (room == null)
+                return true;
+
+            session.Send(new RoomInfoRequestAck2Message
+            {
+                MasterName = room.Master.Account.Nickname,
+                MasterLevel = room.Master.Level,
+                Unk3 = "",
+                ScoreLimit = room.Options.ScoreLimit,
+                State = room.GameRule.StateMachine.GameState,
+                PlayersInAlpha = room.TeamManager.Players.Count(x => x.Team.Id == TeamId.Alpha),
+                PlayersInBeta = room.TeamManager.Players.Count(x => x.Team.Id == TeamId.Beta),
+                Spectators = room.TeamManager.Spectators.Count(),
+                SpectatorLimit = room.Options.SpectatorLimit
+            });
+
+            return true;
+        }
+
         [Firewall(typeof(MustBeInRoom))]
         [Firewall(typeof(MustBeGameState), GameState.Waiting)]
-        public async Task<bool> OnHandle(MessageContext context, CChangeTeamReqMessage message)
+        public async Task<bool> OnHandle(MessageContext context, RoomTeamChangeReqMessage message)
         {
             var session = context.GetSession<Session>();
             var plr = session.Player;
@@ -181,11 +233,11 @@ namespace Netsphere.Server.Game.Handlers
             switch (error)
             {
                 case TeamChangeError.Full:
-                    session.Send(new SChangeTeamFailAckMessage(ChangeTeamResult.Full));
+                    session.Send(new RoomChangeTeamFailAckMessage(ChangeTeamResult.Full));
                     break;
 
                 case TeamChangeError.PlayerIsReady:
-                    session.Send(new SChangeTeamFailAckMessage(ChangeTeamResult.AlreadyReady));
+                    session.Send(new RoomChangeTeamFailAckMessage(ChangeTeamResult.AlreadyReady));
                     break;
             }
 
@@ -193,7 +245,7 @@ namespace Netsphere.Server.Game.Handlers
         }
 
         [Firewall(typeof(MustBeInRoom))]
-        public async Task<bool> OnHandle(MessageContext context, CPlayerGameModeChangeReqMessage message)
+        public async Task<bool> OnHandle(MessageContext context, RoomPlayModeChangeReqMessage message)
         {
             var session = context.GetSession<Session>();
             var plr = session.Player;
@@ -211,11 +263,11 @@ namespace Netsphere.Server.Game.Handlers
             switch (error)
             {
                 case TeamChangeModeError.Full:
-                    session.Send(new SChangeTeamFailAckMessage(ChangeTeamResult.Full));
+                    session.Send(new RoomChangeTeamFailAckMessage(ChangeTeamResult.Full));
                     break;
 
                 case TeamChangeModeError.PlayerIsReady:
-                    session.Send(new SChangeTeamFailAckMessage(ChangeTeamResult.AlreadyReady));
+                    session.Send(new RoomChangeTeamFailAckMessage(ChangeTeamResult.AlreadyReady));
                     break;
             }
 
@@ -225,49 +277,7 @@ namespace Netsphere.Server.Game.Handlers
         [Firewall(typeof(MustBeInRoom))]
         [Firewall(typeof(MustBeMaster))]
         [Firewall(typeof(MustBeGameState), GameState.Waiting)]
-        public async Task<bool> OnHandle(MessageContext context, CMixChangeTeamReqMessage message)
-        {
-            var session = context.GetSession<Session>();
-            var plr = session.Player;
-            var room = plr.Room;
-            var plrToMove = room.Players.GetValueOrDefault(message.PlayerToMove);
-            var plrToReplace = room.Players.GetValueOrDefault(message.PlayerToReplace);
-            var fromTeam = room.TeamManager[message.FromTeam];
-            var toTeam = room.TeamManager[message.ToTeam];
-
-            if (fromTeam == null || toTeam == null || plrToMove == null ||
-                fromTeam != plrToMove.Team ||
-                plrToReplace != null && toTeam != plrToReplace.Team)
-            {
-                session.Send(new SMixChangeTeamFailAckMessage());
-                return true;
-            }
-
-            if (plrToReplace == null)
-            {
-                var error = toTeam.Join(plrToMove);
-
-                if (error != TeamJoinError.OK)
-                    session.Send(new SMixChangeTeamFailAckMessage());
-            }
-            else
-            {
-                room.TeamManager.SwapPlayer(plrToMove, plrToReplace);
-                plr.Room.Broadcast(new SMixChangeTeamAckMessage(
-                    plrToMove.Account.Id, plrToReplace.Account.Id,
-                    fromTeam.Id, toTeam.Id));
-
-                // SMixChangeTeamAckMessage alone doesn't seem to change the player list
-                plr.Room.BroadcastBriefing();
-            }
-
-            return true;
-        }
-
-        [Firewall(typeof(MustBeInRoom))]
-        [Firewall(typeof(MustBeMaster))]
-        [Firewall(typeof(MustBeGameState), GameState.Waiting)]
-        public async Task<bool> OnHandle(MessageContext context, CBeginRoundReqMessage message)
+        public async Task<bool> OnHandle(MessageContext context, RoomBeginRoundReq2Message message)
         {
             var session = context.GetSession<Session>();
             var plr = session.Player;
@@ -275,19 +285,19 @@ namespace Netsphere.Server.Game.Handlers
 
             if (!_equipValidator.IsValid(plr.CharacterManager.CurrentCharacter))
             {
-                session.Send(new SServerResultInfoAckMessage(ServerResult.WearingUnusableItem));
+                session.Send(new ServerResultAckMessage(ServerResult.WearingUnusableItem));
                 return true;
             }
 
             if (!room.GameRule.StateMachine.StartGame())
-                session.Send(new SEventMessageAckMessage(GameEventMessage.CantStartGame, 0, 0, 0, ""));
+                session.Send(new GameEventMessageAckMessage(GameEventMessage.CantStartGame, 0, 0, 0, ""));
 
             return true;
         }
 
         [Firewall(typeof(MustBeInRoom))]
         [Firewall(typeof(MustBeGameState), GameState.Waiting)]
-        public Task<bool> OnHandle(MessageContext context, CReadyRoundReqMessage message)
+        public Task<bool> OnHandle(MessageContext context, RoomReadyRoundReq2Message message)
         {
             var session = context.GetSession<Session>();
             var plr = session.Player;
@@ -295,53 +305,30 @@ namespace Netsphere.Server.Game.Handlers
 
             if (!_equipValidator.IsValid(plr.CharacterManager.CurrentCharacter))
             {
-                session.Send(new SServerResultInfoAckMessage(ServerResult.WearingUnusableItem));
+                session.Send(new ServerResultAckMessage(ServerResult.WearingUnusableItem));
                 return Task.FromResult(true);
             }
 
             plr.IsReady = !plr.IsReady;
-            room.Broadcast(new SReadyRoundAckMessage(plr.Account.Id, plr.IsReady));
+            room.Broadcast(new RoomReadyRoundAckMessage(plr.Account.Id, plr.IsReady));
             return Task.FromResult(true);
         }
 
         [Firewall(typeof(MustBeInRoom))]
-        public Task<bool> OnHandle(MessageContext context, CEventMessageReqMessage message)
+        public Task<bool> OnHandle(MessageContext context, GameEventMessageReqMessage message)
         {
             var session = context.GetSession<Session>();
             var plr = session.Player;
             var room = plr.Room;
 
-            // Client is trying to enter the game while its running
-            if (room.GameRule.StateMachine.GameState == GameState.Playing && plr.State == PlayerState.Lobby)
-            {
-                if (!_equipValidator.IsValid(plr.CharacterManager.CurrentCharacter))
-                {
-                    session.Send(new SServerResultInfoAckMessage(ServerResult.WearingUnusableItem));
-                    return Task.FromResult(true);
-                }
-
-                for (var i = 0; i < plr.CharacterStartPlayTime.Length; ++i)
-                    plr.CharacterStartPlayTime[i] = default;
-
-                plr.CharacterStartPlayTime[plr.CharacterManager.CurrentSlot] = DateTimeOffset.Now;
-                plr.StartPlayTime = DateTimeOffset.Now;
-                plr.IsReady = false;
-                plr.Score.Reset();
-                plr.State = plr.Mode == PlayerGameMode.Normal
-                    ? PlayerState.Alive
-                    : PlayerState.Spectating;
-
-                room.BroadcastBriefing();
-            }
-
-            room.Broadcast(new SEventMessageAckMessage(message.Event, session.Player.Account.Id,
+            room.Broadcast(new GameEventMessageAckMessage(message.Event, session.Player.Account.Id,
                 message.Unk1, message.Value, ""));
 
             return Task.FromResult(true);
         }
 
         [Firewall(typeof(MustBeInRoom))]
-        public Task<bool> OnHandle(MessageContext context, CItemsChangeReqMessage message)
+        public Task<bool> OnHandle(MessageContext context, RoomItemChangeReqMessage message)
         {
             var session = context.GetSession<Session>();
             var plr = session.Player;
@@ -360,12 +347,12 @@ namespace Netsphere.Server.Game.Handlers
             if (message.Unk2.Length > 0)
                 logger.Warning("Item sync unk2={Unk2}", (object)message.Unk2);
 
-            room.Broadcast(new SItemsChangeAckMessage(message.Unk1, message.Unk2));
+            room.Broadcast(new RoomChangeItemAckMessage(message.Unk1, message.Unk2));
             return Task.FromResult(true);
         }
 
         [Firewall(typeof(MustBeInRoom))]
-        public Task<bool> OnHandle(MessageContext context, CAvatarChangeReqMessage message)
+        public Task<bool> OnHandle(MessageContext context, GameAvatarChangeReqMessage message)
         {
             var session = context.GetSession<Session>();
             var plr = session.Player;
@@ -386,14 +373,14 @@ namespace Netsphere.Server.Game.Handlers
             if (message.Unk2.Length > 0)
                 logger.Warning("Avatar sync unk2={Unk2}", (object)message.Unk2);
 
-            room.Broadcast(new SAvatarChangeAckMessage(message.Unk1, message.Unk2));
+            room.Broadcast(new GameAvatarChangeAckMessage(message.Unk1, message.Unk2));
             return Task.FromResult(true);
         }
 
         [Firewall(typeof(MustBeInRoom))]
         [Firewall(typeof(MustBeMaster))]
         [Firewall(typeof(MustBeGameState), GameState.Waiting)]
-        public async Task<bool> OnHandle(MessageContext context, CChangeRuleNotifyReqMessage message)
+        public async Task<bool> OnHandle(MessageContext context, RoomChangeRuleNotifyReq2Message message)
         {
             var session = context.GetSession<Session>();
             var plr = session.Player;
@@ -401,13 +388,13 @@ namespace Netsphere.Server.Game.Handlers
 
             var error = room.ChangeRules(message.Settings);
             if (error != RoomChangeRulesError.OK)
-                session.Send(new SServerResultInfoAckMessage(ServerResult.FailedToRequestTask));
+                session.Send(new RoomChangeRuleFailAckMessage());
 
             return true;
         }
 
         [Firewall(typeof(MustBeInRoom))]
-        public Task<bool> OnHandle(MessageContext context, CLeavePlayerRequestReqMessage message)
+        public Task<bool> OnHandle(MessageContext context, RoomLeaveRequestReqMessage message)
         {
             var session = context.GetSession<Session>();
             var plr = session.Player;
@@ -449,7 +436,7 @@ namespace Netsphere.Server.Game.Handlers
         [Firewall(typeof(MustBeInRoom))]
         [Firewall(typeof(MustBeMaster))]
         [Firewall(typeof(MustBeGameState), GameState.Waiting)]
-        public Task<bool> OnHandle(MessageContext context, CAutoMixingTeamReqMessage message)
+        public Task<bool> OnHandle(MessageContext context, RoomAutoMixingTeamReqMessage message)
         {
             var session = context.GetSession<Session>();
             var room = session.Player.Room;
@@ -472,19 +459,75 @@ namespace Netsphere.Server.Game.Handlers
 
                 _logger.Debug("Shuffle team PlayerId={PlayerId} OldTeam={OldTeam} NewTeam={NewTeam}",
                     plr.Account.Id, oldTeam?.Id, plr.Team?.Id);
-
-                if (plr.Team != oldTeam)
-                    room.Broadcast(new SMixChangeTeamAckMessage(plr.Account.Id, 0, oldTeam.Id, plr.Team.Id));
             }
 
-            room.BroadcastBriefing();
+            room.Broadcast(new RoomMixedTeamBriefingInfoAckMessage(
+                room.Players.Values.Select(x => new MixedTeamBriefingDto(x.Account.Id, x.Team.Id)).ToArray()
+            ));
             return Task.FromResult(true);
         }
 
         [Firewall(typeof(MustBeInRoom))]
         [Firewall(typeof(MustBeGameState), GameState.Playing)]
+        public async Task<bool> OnHandle(MessageContext context, RoomIntrudeRoundReq2Message message)
+        {
+            var session = context.GetSession<Session>();
+            var plr = session.Player;
+
+            plr.IsReady = false;
+            plr.IsLoading = true;
+            plr.State = PlayerState.Waiting;
+            plr.Score.Reset();
+
+            for (var i = 0; i < plr.CharacterStartPlayTime.Length; ++i)
+                plr.CharacterStartPlayTime[i] = default;
+
+            plr.Session.Send(new RoomGameLoadingAckMessage());
+            return true;
+        }
+
+        [Firewall(typeof(MustBeInRoom))]
+        public async Task<bool> OnHandle(MessageContext context, GameLoadingSuccessReqMessage message)
+        {
+            var session = context.GetSession<Session>();
+            var plr = session.Player;
+            var room = plr.Room;
+
+            var gameState = room.GameRule.StateMachine.GameState;
+            if (gameState != GameState.Loading && gameState != GameState.Playing)
+                return true;
+
+            plr.IsLoading = false;
+
+            switch (gameState)
+            {
+                case GameState.Loading:
+                    room.Broadcast(new RoomGameEndLoadingAckMessage(plr.Account.Id));
+                    if (room.Players.Values.Where(x => x.State == PlayerState.Waiting).All(x => !x.IsLoading))
+                        room.GameRule.StateMachine.StartGame();
+                    break;
+
+                case GameState.Playing:
+                    plr.CharacterStartPlayTime[plr.CharacterManager.CurrentSlot] = DateTimeOffset.Now;
+                    plr.StartPlayTime = DateTimeOffset.Now;
+                    plr.State = plr.Mode == PlayerGameMode.Normal
+                        ? PlayerState.Alive
+                        : PlayerState.Spectating;
+                    session.Send(new RoomGameStartAckMessage());
+                    session.Send(new GameRefreshGameRuleInfoAckMessage(
+                        gameState, room.GameRule.StateMachine.TimeState, room.GameRule.StateMachine.RoundTime
+                    ));
+                    room.GameRule.OnPlayerIntrude(plr);
+                    break;
+            }
+
+            return true;
+        }
+
+        [Firewall(typeof(MustBeInRoom))]
+        [Firewall(typeof(MustBeGameState), GameState.Playing)]
         [Firewall(typeof(MustBeTimeState), GameTimeState.HalfTime, Invert = true)] // Must not be half time
-        public Task<bool> OnHandle(MessageContext context, CScoreKillReqMessage message)
+        public Task<bool> OnHandle(MessageContext context, ScoreKillReqMessage message)
         {
             var session = context.GetSession<Session>();
             var plr = session.Player;
@@ -508,7 +551,7 @@ namespace Netsphere.Server.Game.Handlers
         [Firewall(typeof(MustBeInRoom))]
         [Firewall(typeof(MustBeGameState), GameState.Playing)]
         [Firewall(typeof(MustBeTimeState), GameTimeState.HalfTime, Invert = true)] // Must not be half time
-        public Task<bool> OnHandle(MessageContext context, CScoreKillAssistReqMessage message)
+        public Task<bool> OnHandle(MessageContext context, ScoreKillAssistReqMessage message)
         {
             var session = context.GetSession<Session>();
             var plr = session.Player;
@@ -536,7 +579,7 @@ namespace Netsphere.Server.Game.Handlers
         [Firewall(typeof(MustBeInRoom))]
         [Firewall(typeof(MustBeGameState), GameState.Playing)]
         [Firewall(typeof(MustBeTimeState), GameTimeState.HalfTime, Invert = true)] // Must not be half time
-        public Task<bool> OnHandle(MessageContext context, CScoreTeamKillReqMessage message)
+        public Task<bool> OnHandle(MessageContext context, ScoreTeamKillReqMessage message)
         {
             var session = context.GetSession<Session>();
             var plr = session.Player;
@@ -559,7 +602,7 @@ namespace Netsphere.Server.Game.Handlers
         [Firewall(typeof(MustBeInRoom))]
         [Firewall(typeof(MustBeGameState), GameState.Playing)]
         [Firewall(typeof(MustBeTimeState), GameTimeState.HalfTime, Invert = true)] // Must not be half time
-        public Task<bool> OnHandle(MessageContext context, CScoreHealAssistReqMessage message)
+        public Task<bool> OnHandle(MessageContext context, ScoreHealAssistReqMessage message)
         {
             var session = context.GetSession<Session>();
             var plr = session.Player;
@@ -575,8 +618,9 @@ namespace Netsphere.Server.Game.Handlers
         [Firewall(typeof(MustBeInRoom))]
         [Firewall(typeof(MustBeGameState), GameState.Playing)]
         [Firewall(typeof(MustBeTimeState), GameTimeState.HalfTime, Invert = true)] // Must not be half time
-        public Task<bool> OnHandle(MessageContext context, CScoreSuicideReqMessage message)
+        public Task<bool> OnHandle(MessageContext context, ScoreSuicideReqMessage message)
         {
+            _logger.Debug("PeerId={PeerId}", message.Id.PeerId.ToString());
             var session = context.GetSession<Session>();
             var plr = session.Player;
             var room = plr.Room;
@@ -592,7 +636,7 @@ namespace Netsphere.Server.Game.Handlers
         [Firewall(typeof(MustBeGameState), GameState.Playing)]
         [Firewall(typeof(MustBeMaster))]
         [Firewall(typeof(MustBeTimeState), GameTimeState.HalfTime, Invert = true)] // Must not be half time
-        public Task<bool> OnHandle(MessageContext context, CScoreGoalReqMessage message)
+        public Task<bool> OnHandle(MessageContext context, ScoreGoalReqMessage message)
         {
             var session = context.GetSession<Session>();
             var plr = session.Player;
@@ -610,7 +654,7 @@ namespace Netsphere.Server.Game.Handlers
         [Firewall(typeof(MustBeGameState), GameState.Playing)]
         [Firewall(typeof(MustBeMaster))]
         [Firewall(typeof(MustBeTimeState), GameTimeState.HalfTime, Invert = true)] // Must not be half time
-        public Task<bool> OnHandle(MessageContext context, CScoreReboundReqMessage message)
+        public Task<bool> OnHandle(MessageContext context, ScoreReboundReqMessage message)
         {
             var session = context.GetSession<Session>();
             var plr = session.Player;
@@ -625,7 +669,7 @@ namespace Netsphere.Server.Game.Handlers
         [Firewall(typeof(MustBeInRoom))]
         [Firewall(typeof(MustBeGameState), GameState.Playing)]
         [Firewall(typeof(MustBeTimeState), GameTimeState.HalfTime, Invert = true)] // Must not be half time
-        public Task<bool> OnHandle(MessageContext context, CScoreOffenseReqMessage message)
+        public Task<bool> OnHandle(MessageContext context, ScoreOffenseReqMessage message)
         {
             var session = context.GetSession<Session>();
             var plr = session.Player;
@@ -649,7 +693,7 @@ namespace Netsphere.Server.Game.Handlers
         [Firewall(typeof(MustBeInRoom))]
         [Firewall(typeof(MustBeGameState), GameState.Playing)]
         [Firewall(typeof(MustBeTimeState), GameTimeState.HalfTime, Invert = true)] // Must not be half time
-        public Task<bool> OnHandle(MessageContext context, CScoreOffenseAssistReqMessage message)
+        public Task<bool> OnHandle(MessageContext context, ScoreOffenseAssistReqMessage message)
         {
             var session = context.GetSession<Session>();
             var plr = session.Player;
@@ -677,7 +721,7 @@ namespace Netsphere.Server.Game.Handlers
         [Firewall(typeof(MustBeInRoom))]
         [Firewall(typeof(MustBeGameState), GameState.Playing)]
         [Firewall(typeof(MustBeTimeState), GameTimeState.HalfTime, Invert = true)] // Must not be half time
-        public Task<bool> OnHandle(MessageContext context, CScoreDefenseReqMessage message)
+        public Task<bool> OnHandle(MessageContext context, ScoreDefenseReqMessage message)
         {
             var session = context.GetSession<Session>();
             var plr = session.Player;
@@ -701,7 +745,7 @@ namespace Netsphere.Server.Game.Handlers
         [Firewall(typeof(MustBeInRoom))]
         [Firewall(typeof(MustBeGameState), GameState.Playing)]
         [Firewall(typeof(MustBeTimeState), GameTimeState.HalfTime, Invert = true)] // Must not be half time
-        public Task<bool> OnHandle(MessageContext context, CScoreDefenseAssistReqMessage message)
+        public Task<bool> OnHandle(MessageContext context, ScoreDefenseAssistReqMessage message)
         {
             var session = context.GetSession<Session>();
             var plr = session.Player;
@@ -729,7 +773,7 @@ namespace Netsphere.Server.Game.Handlers
         [Firewall(typeof(MustBeInRoom))]
         [Firewall(typeof(MustBeGameState), GameState.Playing)]
         [Firewall(typeof(MustBeTimeState), GameTimeState.HalfTime, Invert = true)] // Must not be half time
-        public Task<bool> OnHandle(MessageContext context, CMissionScoreReqMessage message)
+        public Task<bool> OnHandle(MessageContext context, ScoreMissionScoreReqMessage message)
         {
             var session = context.GetSession<Session>();
             var plr = session.Player;

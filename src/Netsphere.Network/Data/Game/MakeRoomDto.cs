@@ -1,4 +1,6 @@
-﻿using BlubLib.Serialization;
+﻿using System;
+using BlubLib.Serialization;
+using Netsphere.Network.Serializers;
 
 namespace Netsphere.Network.Data.Game
 {
@@ -6,50 +8,50 @@ namespace Netsphere.Network.Data.Game
     public class MakeRoomDto
     {
         [BlubMember(0)]
-        public string Name { get; set; }
+        public Netsphere.GameRule GameRule { get; set; }
 
         [BlubMember(1)]
-        public MatchKey MatchKey { get; set; }
+        public byte Map { get; set; }
 
         [BlubMember(2)]
-        public byte TimeLimit { get; set; }
+        public byte PlayerLimit { get; set; }
 
         [BlubMember(3)]
-        public uint Unk1 { get; set; }
-
-        [BlubMember(4)]
         public ushort ScoreLimit { get; set; }
 
+        [BlubMember(4)]
+        [BlubSerializer(typeof(TimeLimitSerializer))]
+        public TimeSpan TimeLimit { get; set; }
+
         [BlubMember(5)]
-        public uint Unk2 { get; set; }
+        public uint ItemLimit { get; set; }
 
         [BlubMember(6)]
-        public string Password { get; set; }
+        public string Name { get; set; }
 
         [BlubMember(7)]
-        public bool IsFriendly { get; set; }
+        public string Password { get; set; }
 
         [BlubMember(8)]
-        public bool IsBalanced { get; set; }
+        public byte Unk1 { get; set; }
 
         [BlubMember(9)]
-        public byte MinLevel { get; set; }
+        public byte Unk2 { get; set; }
 
         [BlubMember(10)]
-        public byte MaxLevel { get; set; }
+        public byte Unk3 { get; set; }
 
         [BlubMember(11)]
-        public EquipLimit EquipLimit { get; set; }
+        public int Unk4 { get; set; }
 
         [BlubMember(12)]
-        public bool IsNoIntrusion { get; set; }
+        public int Unk5 { get; set; }
 
         [BlubMember(13)]
-        public byte Unk3 { get; set; } // EnterRoomInfoDto->Value, RoomDto->Unk4
+        public byte Unk6 { get; set; }
 
         public MakeRoomDto()
         {
-            MatchKey = 0;
             Name = "";
             Password = "";
         }

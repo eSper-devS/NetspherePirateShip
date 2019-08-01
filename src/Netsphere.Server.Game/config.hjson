@@ -13,7 +13,7 @@
     UpdateInterval: 30000
   }
   RelayEndPoint: 127.0.0.1:28005
-  ClientVersions: ["2.8.3.26956"]
+  ClientVersions: ["0.8.32.26995"]
   Database:
   {
     ConnectionStrings:
@@ -106,6 +106,24 @@
       PointsPerBonusKill: 5
       PointsPerBonusAssist: 1
       PointsPerDeath: 0
+    }
+    Captain:
+    {
+      ExperienceRates:
+      {
+        ScoreFactor: 0.7
+        FirstPlaceBonus: 50
+        SecondPlaceBonus: 30
+        ThirdPlaceBonus: 10
+        PlayerCountFactor: 0.06
+        ExperiencePerMinute: 20
+      }
+      PointsPerKill: 2
+      PointsPerKillAssist: 1
+      PointsPerCaptainKill: 5
+      PointsPerRoundWin: 5
+      PointsPerSuicide: -1
+      PointsPerHeal: 1
     }
   }
 }

@@ -9,7 +9,7 @@ using ProudNet;
 namespace Netsphere.Server.Game.Handlers
 {
     internal class MiscHandler
-        : IHandle<CTimeSyncReqMessage>, IHandle<CAdminShowWindowReqMessage>, IHandle<CAdminActionReqMessage>
+        : IHandle<TimeSyncReqMessage>, IHandle<AdminShowWindowReqMessage>, IHandle<AdminActionReqMessage>
     {
         private readonly CommandService _commandService;
 
@@ -19,9 +19,9 @@ namespace Netsphere.Server.Game.Handlers
         }
 
         [Inline]
-        public async Task<bool> OnHandle(MessageContext context, CTimeSyncReqMessage message)
+        public async Task<bool> OnHandle(MessageContext context, TimeSyncReqMessage message)
         {
-            context.Session.Send(new STimeSyncAckMessage
+            context.Session.Send(new TimeSyncAckMessage
             {
                 ClientTime = message.Time,
                 ServerTime = (uint)Environment.TickCount
@@ -32,18 +32,18 @@ namespace Netsphere.Server.Game.Handlers
 
         [Firewall(typeof(MustBeLoggedIn))]
         [Inline]
-        public async Task<bool> OnHandle(MessageContext context, CAdminShowWindowReqMessage message)
+        public async Task<bool> OnHandle(MessageContext context, AdminShowWindowReqMessage message)
         {
             var session = context.GetSession<Session>();
             var plr = session.Player;
 
-            session.Send(new SAdminShowWindowAckMessage(plr.Account.SecurityLevel <= SecurityLevel.User));
+            session.Send(new AdminShowWindowAckMessage(plr.Account.SecurityLevel <= SecurityLevel.User));
             return true;
         }
 
         [Firewall(typeof(MustBeLoggedIn))]
         [Inline]
-        public async Task<bool> OnHandle(MessageContext context, CAdminActionReqMessage message)
+        public async Task<bool> OnHandle(MessageContext context, AdminActionReqMessage message)
         {
             var session = context.GetSession<Session>();
             var plr = session.Player;

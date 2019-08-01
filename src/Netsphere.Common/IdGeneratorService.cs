@@ -33,6 +33,7 @@ namespace Netsphere.Common
         License,
         Deny,
         Setting,
-        Mail
+        Mail,
+        Friend
     }
 }

@@ -1,7 +1,10 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Drawing;
+using System.Globalization;
 using System.Linq;
+using Netsphere.Database.Game;
 using Netsphere.Network.Message.Game;
 
 namespace Netsphere.Server.Game
@@ -15,9 +18,14 @@ namespace Netsphere.Server.Game
 
         public uint Id { get; }
         public ChannelCategory Category { get; }
-        public string Name { get; }
         public int PlayerLimit { get; }
-        public byte Type { get; }
+        public string Name { get; }
+        public string Description { get; }
+        public string Rank { get; }
+        public Color Color { get; }
+        public Color TooltipColor { get; }
+        public uint MinLevel { get; }
+        public uint MaxLevel { get; }
         public IReadOnlyDictionary<ulong, Player> Players => (IReadOnlyDictionary<ulong, Player>)_players;
         public RoomManager RoomManager { get; }
 
@@ -39,13 +47,17 @@ namespace Netsphere.Server.Game
             PlayerLeft?.Invoke(this, new ChannelEventArgs(this, plr));
         }
 
-        public Channel(uint id, ChannelCategory category, string name, int playerLimit, byte type, RoomManager roomManager)
+        public Channel(ChannelEntity channelEntity, RoomManager roomManager)
         {
-            Id = id;
-            Category = category;
-            Name = name;
-            PlayerLimit = playerLimit;
-            Type = type;
+            Id = (uint)channelEntity.Id;
+            Category = ChannelCategory.Speed;
+            PlayerLimit = channelEntity.PlayerLimit;
+            Name = channelEntity.Name;
+            Description = channelEntity.Description;
+            Rank = "FREE";
+            Color = Color.FromArgb(int.Parse(channelEntity.Color, NumberStyles.HexNumber));
+            MinLevel = (uint)channelEntity.MinLevel;
+            MaxLevel = (uint)channelEntity.MaxLevel;
             RoomManager = roomManager;
             RoomManager.Initialize(this);
         }

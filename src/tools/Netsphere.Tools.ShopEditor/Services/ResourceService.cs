@@ -23,6 +23,7 @@ namespace Netsphere.Tools.ShopEditor.Services
         private readonly S4Zip _zip;
 
         public Effect[] Effects { get; private set; }
+        public Effect[] EffectMatches { get; private set; }
         public Item[] Items { get; private set; }
 
         public ResourceService()
@@ -32,16 +33,24 @@ namespace Netsphere.Tools.ShopEditor.Services
 
         public void Load()
         {
-            var itemEffectDto = Deserialize<ItemEffectDto>("xml/item_effect.x7");
+            var itemEffectDto = Deserialize<EffectListDto>("xml/effect_list.x7");
+            var effectMatchDto = Deserialize<EffectMatchListDto>("xml/effect_match_list.x7");
             var stringTableDto = Deserialize<StringTableDto>("language/xml/item_effect_string_table.x7");
-            Effects = itemEffectDto.item.Select(effectDto =>
+            Effects = itemEffectDto.item_effect.Select(effectDto =>
             {
-                var id = effectDto.id;
-                var name = stringTableDto.@string.FirstOrDefault(x => x.key == effectDto.text_key)?.eng ?? effectDto.NAME;
+                var id = effectDto.effect_id;
+                var name = stringTableDto.@string.FirstOrDefault(x => x.key == effectDto.name_key)?.eng ?? effectDto.name_key;
                 return new Effect(id, name);
             }).ToArray();
 
-            var itemInfoDto = Deserialize<ItemInfoDto>("xml/iteminfo.x7");
+            EffectMatches = effectMatchDto.match_key.Select(matchDto =>
+            {
+                var id = matchDto.id;
+                var name = stringTableDto.@string.FirstOrDefault(x => x.key == matchDto.name_key)?.eng ?? matchDto.name_key;
+                return new Effect(id, name);
+            }).ToArray();
+
+            var itemInfoDto = Deserialize<ItemListDto>("xml/item.x7");
             stringTableDto = Deserialize<StringTableDto>("language/xml/iteminfo_string_table.x7");
             var items = new List<Item>();
 
@@ -50,15 +59,13 @@ namespace Netsphere.Tools.ShopEditor.Services
                 .Where(x => x.FullName.StartsWith("resources/image/", StringComparison.OrdinalIgnoreCase))
                 .ToArray();
 
-            foreach (var categoryDto in itemInfoDto.category)
-            foreach (var subCategoryDto in categoryDto.sub_category)
-            foreach (var itemDto in subCategoryDto.item)
+            foreach (var itemDto in itemInfoDto.item)
             {
-                var itemNumber = new ItemNumber(categoryDto.id, subCategoryDto.id, itemDto.number);
+                var itemNumber = new ItemNumber(itemDto.item_key);
                 var name = stringTableDto.@string.FirstOrDefault(x =>
-                               x.key == itemDto.@base.base_info.name_key)?.eng ?? itemDto.NAME;
+                               x.key == itemDto.@base.name_key)?.eng ?? itemDto.@base.name;
 
-                var imageName = itemDto.client?.icon?.image ?? "";
+                var imageName = itemDto.graphic?.icon_image ?? "";
                 imageName = Path.GetFileNameWithoutExtension(imageName);
                 items.Add(new Item(itemNumber, name, imageName, imageEntries));
             }

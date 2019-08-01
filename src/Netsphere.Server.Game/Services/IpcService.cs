@@ -14,15 +14,17 @@ namespace Netsphere.Server.Game.Services
         private readonly IMessageBus _messageBus;
         private readonly PlayerManager _playerManager;
         private readonly ChannelService _channelService;
+        private readonly GameDataService _gameDataService;
         private readonly ServerListOptions _serverListOptions;
         private readonly CancellationTokenSource _cts;
 
         public IpcService(IMessageBus messageBus, PlayerManager playerManager, ChannelService channelService,
-            IOptions<ServerListOptions> serverListOptions)
+            IOptions<ServerListOptions> serverListOptions, GameDataService gameDataService)
         {
             _messageBus = messageBus;
             _playerManager = playerManager;
             _channelService = channelService;
+            _gameDataService = gameDataService;
             _serverListOptions = serverListOptions.Value;
             _cts = new CancellationTokenSource();
 
@@ -35,7 +37,9 @@ namespace Netsphere.Server.Game.Services
         {
             await _messageBus.SubscribeToRequestAsync<ChatLoginRequest, ChatLoginResponse>(OnChatLogin, _cts.Token);
             await _messageBus.SubscribeToRequestAsync<RelayLoginRequest, RelayLoginResponse>(OnRelayLogin, _cts.Token);
-            await _messageBus.SubscribeAsync<PlayerPeerIdMessage>(OnPlayerPeerId, _cts.Token);
+            await _messageBus.SubscribeToRequestAsync<LevelFromExperienceRequest, LevelFromExperienceResponse>(
+                OnLevelFromExperience, _cts.Token
+            );
         }
 
         public Task StopAsync(CancellationToken cancellationToken)
@@ -67,13 +71,9 @@ namespace Netsphere.Server.Game.Services
             return Task.FromResult(new RelayLoginResponse(true, plr.Account));
         }
 
-        private Task OnPlayerPeerId(PlayerPeerIdMessage message)
+        private async Task<LevelFromExperienceResponse> OnLevelFromExperience(LevelFromExperienceRequest request)
         {
-            var plr = _playerManager[message.AccountId];
-            if (plr.PeerId == null)
-                plr.PeerId = new LongPeerId(message.AccountId, message.PeerId);
-
-            return Task.CompletedTask;
+            return new LevelFromExperienceResponse(_gameDataService.GetLevelFromExperience(request.TotalExperience).Level);
         }
 
         private void ChannelOnPlayerJoined(object sender, ChannelEventArgs e)

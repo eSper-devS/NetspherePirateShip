@@ -13,14 +13,6 @@ namespace Netsphere.Network.Message.Event
     }
 
     [BlubContract]
-    public class UnkMessage : IEventMessage
-    {
-        [BlubMember(0)]
-        [BlubSerializer(typeof(ReadToEndSerializer))]
-        public byte[] Message { get; set; }
-    }
-
-    [BlubContract]
     public class EventMessageMessage : IEventMessage
     {
         [BlubMember(0)]
@@ -95,6 +87,18 @@ namespace Netsphere.Network.Message.Event
         {
             Unk2 = Array.Empty<byte>();
         }
+    }
+
+    [BlubContract]
+    public class WaitingRoomActionSyncMessage : IEventMessage
+    {
+        [BlubMember(0)]
+        public byte Unk { get; set; }
+    }
+
+    [BlubContract]
+    public class FootballBallSyncMessage : IEventMessage
+    {
     }
 
     [BlubContract]

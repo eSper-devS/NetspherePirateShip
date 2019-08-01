@@ -4,7 +4,6 @@ using System.IO;
 using System.Linq;
 using DotNetty.Transport.Channels;
 using ExpressMapper;
-using ExpressMapper.Extensions;
 using Foundatio.Caching;
 using Foundatio.Messaging;
 using Foundatio.Serializer;
@@ -49,7 +48,7 @@ namespace Netsphere.Server.Chat
             IPluginHost pluginHost = new MefPluginHost();
             pluginHost.Initialize(configuration, Path.Combine(baseDirectory, "plugins"));
 
-            ConfigureMapper(appOptions);
+            ConfigureMapper();
 
             hostBuilder
                 .ConfigureHostConfiguration(builder => builder.AddConfiguration(configuration))
@@ -113,6 +112,7 @@ namespace Netsphere.Server.Chat
                         .AddTransient<Player>()
                         .AddTransient<Mailbox>()
                         .AddTransient<DenyManager>()
+                        .AddTransient<FriendManager>()
                         .AddTransient<PlayerSettingManager>()
                         .AddSingleton<PlayerManager>()
                         .AddSingleton<ChannelManager>()
@@ -159,7 +159,7 @@ namespace Netsphere.Server.Chat
             pluginHost.Dispose();
         }
 
-        private static void ConfigureMapper(AppOptions appOptions)
+        private static void ConfigureMapper()
         {
             Mapper.Register<Mail, NoteDto>()
                 .Function(dest => dest.ReadCount, src => src.IsNew ? 0 : 1)
@@ -174,18 +174,18 @@ namespace Netsphere.Server.Chat
                 .Member(dest => dest.AccountId, src => src.DenyId)
                 .Member(dest => dest.Nickname, src => src.Nickname);
 
-            Mapper.Register<Player, UserDataDto>()
-                .Member(dest => dest.AccountId, src => src.Account.Id)
-                .Member(dest => dest.ServerId, src => appOptions.ServerList.Id)
-                .Function(dest => dest.ChannelId, src => src.Channel != null ? (short)src.Channel.Id : (short)-1)
-                .Function(dest => dest.RoomId, src => src.RoomId == 0 ? 0xFFFFFFFF : src.RoomId) // ToDo: Tutorial, License
-                .Function(dest => dest.Team, src => src.TeamId)
-                .Function(dest => dest.TotalExperience, src => src.TotalExperience);
+            Mapper.Register<Friend, FriendDto>()
+                .Member(dest => dest.AccountId, src => src.FriendId)
+                .Member(dest => dest.Nickname, src => src.Nickname)
+                .Member(dest => dest.State, src => src.State);
 
-            Mapper.Register<Player, UserDataWithNickDto>()
+            Mapper.Register<Player, PlayerInfoShortDto>()
                 .Member(dest => dest.AccountId, src => src.Account.Id)
+                .Member(dest => dest.Nickname, src => src.Account.Nickname);
+
+            Mapper.Register<Player, UserDataDto>()
                 .Member(dest => dest.Nickname, src => src.Account.Nickname)
-                .Function(dest => dest.Data, src => src.Map<Player, UserDataDto>());
+                .Member(dest => dest.AccountId, src => src.Account.Id);
 
             Mapper.Compile(CompilationTypes.Source);
         }

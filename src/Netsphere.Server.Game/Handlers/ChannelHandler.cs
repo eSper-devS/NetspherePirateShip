@@ -12,7 +12,7 @@ using ProudNet;
 namespace Netsphere.Server.Game.Handlers
 {
     internal class ChannelHandler
-        : IHandle<CGetChannelInfoReqMessage>, IHandle<CChannelEnterReqMessage>, IHandle<CChannelLeaveReqMessage>
+        : IHandle<ChannelInfoReqMessage>, IHandle<ChannelEnterReqMessage>, IHandle<ChannelLeaveReqMessage>
     {
         private readonly ILogger _logger;
         private readonly ChannelService _channelService;
@@ -24,7 +24,7 @@ namespace Netsphere.Server.Game.Handlers
         }
 
         [Firewall(typeof(MustBeLoggedIn))]
-        public async Task<bool> OnHandle(MessageContext context, CGetChannelInfoReqMessage message)
+        public async Task<bool> OnHandle(MessageContext context, ChannelInfoReqMessage message)
         {
             var session = context.GetSession<Session>();
             var plr = session.Player;
@@ -35,8 +35,8 @@ namespace Netsphere.Server.Game.Handlers
                 case ChannelInfoRequest.RoomList2:
                     if (plr.Channel != null)
                     {
-                        var rooms = plr.Channel.RoomManager.Select(x => x.Map<Room, RoomDto>()).ToArray();
-                        session.Send(new SGameRoomListAckMessage(message.Request, rooms));
+                        var rooms = plr.Channel.RoomManager.Select(x => x.Map<Room, Room2Dto>()).ToArray();
+                        session.Send(new RoomListInfoAck2Message(rooms));
                     }
 
                     break;
@@ -45,7 +45,7 @@ namespace Netsphere.Server.Game.Handlers
                     if (plr.Channel == null)
                     {
                         var channels = _channelService.Select(x => x.Map<Channel, ChannelInfoDto>()).ToArray();
-                        session.Send(new SChannelListInfoAckMessage(channels));
+                        session.Send(new ChannelListInfoAckMessage(channels));
                     }
 
                     break;
@@ -60,7 +60,7 @@ namespace Netsphere.Server.Game.Handlers
         }
 
         [Firewall(typeof(MustBeInChannel), Invert = true)]
-        public async Task<bool> OnHandle(MessageContext context, CChannelEnterReqMessage message)
+        public async Task<bool> OnHandle(MessageContext context, ChannelEnterReqMessage message)
         {
             var session = context.GetSession<Session>();
             var plr = session.Player;
@@ -68,7 +68,7 @@ namespace Netsphere.Server.Game.Handlers
             var channel = _channelService[message.Channel];
             if (channel == null)
             {
-                session.Send(new SServerResultInfoAckMessage(ServerResult.NonExistingChannel));
+                session.Send(new ServerResultAckMessage(ServerResult.NonExistingChannel));
                 return true;
             }
 
@@ -76,30 +76,30 @@ namespace Netsphere.Server.Game.Handlers
             switch (result)
             {
                 case ChannelJoinError.OK:
-                    plr.Session.Send(new SServerResultInfoAckMessage(ServerResult.ChannelEnter));
+                    plr.Session.Send(new ServerResultAckMessage(ServerResult.ChannelEnter));
                     break;
 
                 case ChannelJoinError.AlreadyInChannel:
-                    plr.Session.Send(new SServerResultInfoAckMessage(ServerResult.JoinChannelFailed));
+                    plr.Session.Send(new ServerResultAckMessage(ServerResult.JoinChannelFailed));
                     break;
 
                 case ChannelJoinError.ChannelFull:
-                    plr.Session.Send(new SServerResultInfoAckMessage(ServerResult.ChannelLimitReached));
+                    plr.Session.Send(new ServerResultAckMessage(ServerResult.ChannelLimitReached));
                     break;
             }
 
             return true;
         }
 
-        [Firewall(typeof(MustBeInChannel))]
+        [Firewall(typeof(MustBeLoggedIn))]
         [Firewall(typeof(MustBeInRoom), Invert = true)]
-        public async Task<bool> OnHandle(MessageContext context, CChannelLeaveReqMessage message)
+        public async Task<bool> OnHandle(MessageContext context, ChannelLeaveReqMessage message)
         {
             var session = context.GetSession<Session>();
             var plr = session.Player;
 
-            plr.Channel.Leave(plr);
-            plr.Session.Send(new SServerResultInfoAckMessage(ServerResult.ChannelLeave));
+            plr.Channel?.Leave(plr);
+            plr.Session.Send(new ServerResultAckMessage(ServerResult.ChannelLeave));
             return true;
         }
     }

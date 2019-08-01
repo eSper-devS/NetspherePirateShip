@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using BlubLib.Threading.Tasks;
 using DotNetty.Transport.Channels;
 using ExpressMapper;
 using Foundatio.Caching;
@@ -18,6 +17,7 @@ using Netsphere.Common.Plugins;
 using Netsphere.Database;
 using Netsphere.Network.Data.Game;
 using Netsphere.Network.Data.GameRule;
+using Netsphere.Network.Message.Club;
 using Netsphere.Network.Message.Game;
 using Netsphere.Network.Message.GameRule;
 using Netsphere.Network.Serializers;
@@ -64,13 +64,18 @@ namespace Netsphere.Server.Game
                 .UseProudNetServer(builder =>
                 {
                     var messageHandlerResolver = new DefaultMessageHandlerResolver(
-                        AppDomain.CurrentDomain.GetAssemblies(), typeof(IGameMessage), typeof(IGameRuleMessage));
+                        AppDomain.CurrentDomain.GetAssemblies(),
+                        typeof(IGameMessage),
+                        typeof(IGameRuleMessage),
+                        typeof(IClubMessage)
+                    );
 
                     builder
                         .UseHostIdFactory<HostIdFactory>()
                         .UseSessionFactory<SessionFactory>()
                         .AddMessageFactory<GameMessageFactory>()
                         .AddMessageFactory<GameRuleMessageFactory>()
+                        .AddMessageFactory<ClubMessageFactory>()
                         .UseMessageHandlerResolver(messageHandlerResolver)
                         .UseNetworkConfiguration((context, options) =>
                         {
@@ -89,7 +94,6 @@ namespace Netsphere.Server.Game
                         {
                             serializer.AddSerializer(new CharacterStyleSerializer());
                             serializer.AddSerializer(new ItemNumberSerializer());
-                            serializer.AddSerializer(new MatchKeySerializer());
                             serializer.AddSerializer(new VersionSerializer());
                             serializer.AddSerializer(new ShopPriceSerializer());
                             serializer.AddSerializer(new ShopEffectSerializer());
@@ -117,6 +121,9 @@ namespace Netsphere.Server.Game
                         .Configure<BattleRoyalOptions>(context.Configuration
                             .GetSection(nameof(AppOptions.Game))
                             .GetSection(nameof(AppOptions.Game.BattleRoyal)))
+                        .Configure<CaptainOptions>(context.Configuration
+                            .GetSection(nameof(AppOptions.Game))
+                            .GetSection(nameof(AppOptions.Game.Captain)))
                         .Configure<IdGeneratorOptions>(x => x.Id = 0)
                         .AddSingleton<DatabaseService>()
                         .AddDbContext<AuthContext>(x => x.UseMySql(appOptions.Database.ConnectionStrings.Auth))
@@ -136,7 +143,6 @@ namespace Netsphere.Server.Game
                             Serializer = x.GetRequiredService<ISerializer>()
                         })
                         .AddTransient<Player>()
-                        .AddTransient<LicenseManager>()
                         .AddTransient<CharacterManager>()
                         .AddTransient<PlayerInventory>()
                         .AddSingleton<PlayerManager>()
@@ -147,7 +153,9 @@ namespace Netsphere.Server.Game
                         .AddTransient<Deathmatch>()
                         .AddTransient<Touchdown>()
                         .AddTransient<BattleRoyal>()
+                        .AddTransient<Captain>()
                         .AddTransient<Practice>()
+                        .AddTransient<Captain>()
                         .AddSingleton<EquipValidator>()
                         .AddCommands(typeof(Program).Assembly)
                         .AddService<IdGeneratorService>()
@@ -200,91 +208,89 @@ namespace Netsphere.Server.Game
         private static void ConfigureMapper()
         {
             Mapper.Register<Channel, ChannelInfoDto>()
-                .Member(dest => dest.ChannelId, src => src.Id)
-                .Member(dest => dest.PlayerCount, src => src.Players.Count);
+                .Member(dest => dest.PlayerCount, src => src.Players.Count)
+                .Function(dest => dest.IsClanChannel, src => src.Category == ChannelCategory.Club);
 
             Mapper.Register<PlayerItem, ItemDto>()
-                .Member(dest => dest.Refund, src => src.CalculateRefund())
-                .Member(dest => dest.PurchaseTime, src => src.PurchaseDate.ToUnixTimeSeconds())
                 .Member(dest => dest.ExpireTime,
                     src => src.ExpireDate == DateTimeOffset.MinValue ? -1 : src.ExpireDate.ToUnixTimeSeconds())
+                .Function(
+                    dest => dest.Effects,
+                    src => src.Effects.Select(x => new ItemEffectDto
+                    {
+                        Effect = x
+                    }).OrderBy(x => x.Effect).ToArray()
+                );
 
-                // ToDo
-                .Value(dest => dest.TimeLeft, 0)
-                .Value(dest => dest.Unk1, (uint)0)
-                .Value(dest => dest.Unk2, 0)
-                .Value(dest => dest.Unk3, 0)
-                .Value(dest => dest.Unk4, 0)
-                .Value(dest => dest.Unk5, (uint)0)
-                .Value(dest => dest.Unk6, (uint)0);
-
-            Mapper.Register<PlayerItem, ItemDurabilityInfoDto>()
-                .Member(dest => dest.ItemId, src => src.Id);
-
-            Mapper.Register<Room, RoomDto>()
+            Mapper.Register<Room, Room2Dto>()
                 .Member(dest => dest.RoomId, src => src.Id)
-                .Member(dest => dest.MatchKey, src => src.Options.MatchKey)
+                .Member(dest => dest.GameRule, src => src.Options.GameRule)
+                .Member(dest => dest.Map, src => src.Options.Map)
+                .Member(dest => dest.PlayerLimit, src => src.Options.PlayerLimit)
                 .Member(dest => dest.Name, src => src.Options.Name)
-                .Member(dest => dest.HasPassword, src => !string.IsNullOrWhiteSpace(src.Options.Password))
-                .Member(dest => dest.TimeLimit, src => src.Options.TimeLimit.TotalMilliseconds)
-                .Member(dest => dest.ScoreLimit, src => src.Options.ScoreLimit)
-                .Member(dest => dest.IsFriendly, src => src.Options.IsFriendly)
-                .Member(dest => dest.IsBalanced, src => src.Options.IsBalanced)
-                .Member(dest => dest.MinLevel, src => src.Options.MinLevel)
-                .Member(dest => dest.MaxLevel, src => src.Options.MaxLevel)
-                .Member(dest => dest.EquipLimit, src => src.Options.EquipLimit)
-                .Member(dest => dest.IsNoIntrusion, src => src.Options.IsNoIntrusion)
-                .Member(dest => dest.ConnectingCount, src => src.Players.Count(x => !x.Value.IsInGMMode))
+                .Member(dest => dest.ItemLimit, src => src.Options.EquipLimit)
                 .Member(dest => dest.PlayerCount, src => src.Players.Count(x => !x.Value.IsInGMMode))
-                .Function(dest => dest.Latency, src =>
+                .Function(dest => dest.State, src => src.GameRule.StateMachine.GameState - 1)
+                .Member(dest => dest.IsSpectatingEnabled, src => src.Options.IsSpectatingEnabled)
+                .Function(dest => dest.Password, src => string.IsNullOrEmpty(src.Options.Password) ? "" : "***")
+                .Function(dest => dest.Settings, src =>
                 {
-                    const int good = 30;
-                    const int bad = 190;
+                    var settings = RoomSettings.None;
+                    if (src.Options.IsFriendly)
+                        settings |= RoomSettings.IsFriendly;
 
-                    var averagePing = src.GetAveragePing();
+                    return settings;
+                });
 
-                    if (averagePing <= good)
-                        return 100;
-
-                    if (averagePing >= bad)
-                        return 0;
-
-                    var result = (uint)(100f * averagePing / bad);
-                    return (byte)(100 - result);
-                })
-                .Member(dest => dest.State, src => src.GameRule.StateMachine.GameState);
-
-            Mapper.Register<Room, EnterRoomInfoDto>()
+            Mapper.Register<Room, EnterRoomInfo2Dto>()
                 .Member(dest => dest.RoomId, src => src.Id)
-                .Member(dest => dest.MatchKey, src => src.Options.MatchKey)
+                .Member(dest => dest.GameRule, src => src.Options.GameRule)
+                .Member(dest => dest.Map, src => src.Options.Map)
+                .Member(dest => dest.PlayerLimit, src => src.Options.PlayerLimit)
                 .Member(dest => dest.TimeLimit, src => src.Options.TimeLimit.TotalMilliseconds)
                 .Member(dest => dest.TimeSync, src => src.GameRule.StateMachine.RoundTime.TotalMilliseconds)
                 .Member(dest => dest.ScoreLimit, src => src.Options.ScoreLimit)
-                .Member(dest => dest.IsFriendly, src => src.Options.IsFriendly)
-                .Member(dest => dest.IsBalanced, src => src.Options.IsBalanced)
-                .Member(dest => dest.MinLevel, src => src.Options.MinLevel)
-                .Member(dest => dest.MaxLevel, src => src.Options.MaxLevel)
-                .Member(dest => dest.EquipLimit, src => src.Options.EquipLimit)
-                .Member(dest => dest.IsNoIntrusion, src => src.Options.IsNoIntrusion)
                 .Member(dest => dest.RelayEndPoint, src => src.Options.RelayEndPoint)
                 .Member(dest => dest.State, src => src.GameRule.StateMachine.GameState)
-                .Function(dest => dest.TimeState, src => src.GameRule.StateMachine.TimeState);
+                .Member(dest => dest.TimeState, src => src.GameRule.StateMachine.TimeState);
 
             Mapper.Register<Player, RoomPlayerDto>()
                 .Member(dest => dest.AccountId, src => src.Account.Id)
                 .Member(dest => dest.Nickname, src => src.Account.Nickname)
-                .Value(dest => dest.Unk1, (byte)144);
+                .Member(dest => dest.Slot, src => src.Slot)
+                .Value(dest => dest.Unk2, (byte)144);
 
             Mapper.Register<RoomCreationOptions, ChangeRuleDto>()
-                .Member(dest => dest.Name, src => src.Name)
-                .Member(dest => dest.Password, src => src.Password)
-                .Function(dest => dest.MatchKey, src => src.MatchKey)
-                .Member(dest => dest.TimeLimit, src => src.TimeLimit)
+                .Member(dest => dest.GameRule, src => src.GameRule)
+                .Member(dest => dest.Map, src => src.Map)
+                .Member(dest => dest.PlayerLimit, src => src.PlayerLimit)
                 .Member(dest => dest.ScoreLimit, src => src.ScoreLimit)
-                .Member(dest => dest.IsFriendly, src => src.IsFriendly)
-                .Member(dest => dest.IsBalanced, src => src.IsBalanced)
-                .Member(dest => dest.EquipLimit, src => src.EquipLimit)
-                .Member(dest => dest.IsNoIntrusion, src => src.IsNoIntrusion);
+                .Member(dest => dest.TimeLimit, src => src.TimeLimit)
+                .Member(dest => dest.ItemLimit, src => src.EquipLimit)
+                .Member(dest => dest.Password, src => src.Password)
+                .Member(dest => dest.Name, src => src.Name)
+                .Member(dest => dest.IsSpectatingEnabled, src => src.IsSpectatingEnabled)
+                .Member(dest => dest.SpectatorLimit, src => src.SpectatorLimit);
+
+            Mapper.Register<RoomCreationOptions, ChangeRule2Dto>()
+                .Member(dest => dest.GameRule, src => src.GameRule)
+                .Member(dest => dest.Map, src => src.Map)
+                .Member(dest => dest.PlayerLimit, src => src.PlayerLimit)
+                .Member(dest => dest.ScoreLimit, src => src.ScoreLimit)
+                .Member(dest => dest.TimeLimit, src => src.TimeLimit)
+                .Member(dest => dest.ItemLimit, src => src.EquipLimit)
+                .Member(dest => dest.Password, src => src.Password)
+                .Member(dest => dest.Name, src => src.Name)
+                .Member(dest => dest.IsSpectatingEnabled, src => src.IsSpectatingEnabled)
+                .Member(dest => dest.SpectatorLimit, src => src.SpectatorLimit)
+                .Function(dest => dest.Settings, src =>
+                {
+                    var settings = RoomSettings.None;
+                    if (src.IsFriendly)
+                        settings |= RoomSettings.IsFriendly;
+
+                    return settings;
+                });
 
             Mapper.Compile(CompilationTypes.Source);
         }

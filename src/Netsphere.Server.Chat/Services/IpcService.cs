@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using ExpressMapper.Extensions;
@@ -99,11 +100,25 @@ namespace Netsphere.Server.Chat.Services
             }
 
             plr.TotalExperience = message.TotalExperience;
+            plr.Level = message.Level;
             plr.RoomId = message.RoomId;
             plr.TeamId = message.TeamId;
 
-            var channel = plr.Channel;
-            channel.Broadcast(new SUserDataAckMessage(plr.Map<Player, UserDataDto>()));
+            if (plr.RoomId != 0)
+            {
+                plr.Channel.Broadcast(new ChannelLeavePlayerAckMessage(plr.Account.Id));
+            }
+            else if (plr.RoomId == 0)
+            {
+                plr.Session.Send(new ChannelPlayerListAckMessage(
+                    plr.Channel.Players.Values
+                        .Where(x => x.RoomId == 0)
+                        .Select(x => x.Map<Player, PlayerInfoShortDto>())
+                        .ToArray()
+                ));
+                plr.Channel.Broadcast(new ChannelEnterPlayerAckMessage(plr.Map<Player, PlayerInfoShortDto>()));
+            }
+
             return Task.CompletedTask;
         }
     }

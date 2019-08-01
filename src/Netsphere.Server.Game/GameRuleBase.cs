@@ -2,6 +2,8 @@ using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Extensions.Options;
 using Netsphere.Common.Configuration;
+using Netsphere.Network.Data.Game;
+using Netsphere.Network.Message.Game;
 using Netsphere.Network.Message.GameRule;
 
 namespace Netsphere.Server.Game
@@ -17,6 +19,7 @@ namespace Netsphere.Server.Game
 
         public abstract GameRule GameRule { get; }
         public abstract bool HasHalfTime { get; }
+        public abstract bool HasTimeLimit { get; }
 
         public Room Room { get; private set; }
         public TeamManager TeamManager => Room.TeamManager;
@@ -42,7 +45,7 @@ namespace Netsphere.Server.Game
         public virtual void Initialize(Room room)
         {
             Room = room;
-            StateMachine.Initialize(this, _CanStartGame, HasHalfTime);
+            StateMachine.Initialize(this, _CanStartGame, HasHalfTime, HasTimeLimit);
             Room.PlayerJoining += OnPlayerJoining;
             Room.PlayerLeft += OnPlayerLeft;
 
@@ -61,17 +64,22 @@ namespace Netsphere.Server.Game
             return Room.Players.Values.Select(CreateBriefingPlayer).ToArray();
         }
 
+        protected internal virtual void OnPlayerIntrude(Player plr)
+        {
+        }
+
         protected internal virtual void OnResult()
         {
-            var teams = CreateBriefingTeams();
-            var players = CreateBriefingPlayers();
+            var briefing = Room.GetBriefing();
+            briefing.WinnerTeam = GetWinnerTeam().Id;
 
+            // Result calculations exp, pen, item durability
             foreach (var plr in TeamManager.PlayersPlaying)
             {
                 var (expGain, bonusExpGain) = CalculateExperienceGained(plr);
                 var (penGain, bonusPENGain) = CalculatePENGained(plr);
 
-                var briefingPlayer = players.First(x => x.AccountId == plr.Account.Id);
+                var briefingPlayer = briefing.Players.First(x => x.AccountId == plr.Account.Id);
                 briefingPlayer.ExperienceGained = expGain;
                 briefingPlayer.BonusExperienceGained = bonusExpGain;
                 briefingPlayer.PENGained = penGain;
@@ -90,6 +98,7 @@ namespace Netsphere.Server.Game
                 }
 
                 // Durability loss based on play time
+                var itemDurabilityUpdate = new List<(PlayerItem item, int loss)>();
                 foreach (var character in plr.CharacterManager)
                 {
                     if (plr.CharacterStartPlayTime[character.Slot] == default)
@@ -102,30 +111,33 @@ namespace Netsphere.Server.Game
                     foreach (var item in character.Weapons.GetItems()
                         .Where(item => item != null && item.Durability != -1))
                     {
-                        item.LoseDurability(loss);
+                        itemDurabilityUpdate.Add((item, item.LoseDurability(loss)));
                     }
 
                     foreach (var item in character.Costumes.GetItems()
                         .Where(item => item != null && item.Durability != -1))
                     {
-                        item.LoseDurability(loss);
+                        itemDurabilityUpdate.Add((item, item.LoseDurability(loss)));
                     }
 
                     foreach (var item in character.Skills.GetItems()
                         .Where(item => item != null && item.Durability != -1))
                     {
-                        item.LoseDurability(loss);
+                        itemDurabilityUpdate.Add((item, item.LoseDurability(loss)));
                     }
                 }
+
+                plr.Session.Send(new ItemDurabilityItemAckMessage(
+                    itemDurabilityUpdate
+                        .Where(x => x.loss > 0)
+                        .Select(x => new ItemDurabilityInfoDto
+                        {
+                            ItemId = x.item.Id, Durability = x.loss
+                        }).ToArray()
+                ));
             }
 
-            var briefing = CreateBriefing();
-            briefing.WinnerTeam = GetWinnerTeam().Id;
-            briefing.Teams = teams;
-            briefing.Players = players;
-            briefing.Spectators = TeamManager.Spectators.Select(x => x.Account.Id).ToArray();
-
-            Room.Broadcast(new SBriefingAckMessage(true, false, briefing.GetData()));
+            Room.Broadcast(new GameBriefingInfoAckMessage(true, false, briefing.GetData()));
         }
 
         protected internal virtual Team GetWinnerTeam()

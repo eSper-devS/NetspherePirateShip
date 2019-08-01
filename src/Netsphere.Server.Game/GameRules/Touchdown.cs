@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Microsoft.Extensions.Options;
@@ -20,6 +19,7 @@ namespace Netsphere.Server.Game.GameRules
         public override GameRule GameRule => GameRule.Touchdown;
         public bool IsInTouchdown { get; private set; }
         public override bool HasHalfTime => true;
+        public override bool HasTimeLimit => true;
 
         public Touchdown(GameRuleStateMachine stateMachine, IOptions<GameOptions> gameOptions,
             IOptions<TouchdownOptions> options, ISchedulerService schedulerService)
@@ -37,8 +37,8 @@ namespace Netsphere.Server.Game.GameRules
         {
             base.Initialize(room);
 
-            var playersPerTeam = Room.Options.MatchKey.PlayerLimit / 2;
-            var spectatorsPerTeam = Room.Options.MatchKey.SpectatorLimit / 2;
+            var playersPerTeam = Room.Options.PlayerLimit / 2;
+            var spectatorsPerTeam = Room.Options.SpectatorLimit / 2;
             Room.TeamManager.Add(TeamId.Alpha, playersPerTeam, spectatorsPerTeam);
             Room.TeamManager.Add(TeamId.Beta, playersPerTeam, spectatorsPerTeam);
         }
@@ -237,7 +237,7 @@ namespace Netsphere.Server.Game.GameRules
             if (diff <= s_touchdownWaitTime + TimeSpan.FromSeconds(2))
                 return;
 
-            Room.Broadcast(new SEventMessageAckMessage(GameEventMessage.NextRoundIn,
+            Room.Broadcast(new GameEventMessageAckMessage(GameEventMessage.NextRoundIn,
                 (ulong)s_touchdownWaitTime.TotalMilliseconds, 0, 0, ""));
             _schedulerService.ScheduleAsync(OnNextRound, this, null, s_touchdownWaitTime);
         }
@@ -290,7 +290,7 @@ namespace Netsphere.Server.Game.GameRules
                 return;
 
             This.IsInTouchdown = false;
-            This.Room.Broadcast(new SEventMessageAckMessage(GameEventMessage.ResetRound, 0, 0, 0, ""));
+            This.Room.Broadcast(new GameEventMessageAckMessage(GameEventMessage.ResetRound, 0, 0, 0, ""));
         }
 
         private static TouchdownPlayerScore GetScore(Player plr)

@@ -48,6 +48,15 @@ namespace Netsphere
         VoteKick = 5
     }
 
+    public enum VoteKickReason : byte
+    {
+        Hacking = 0,
+        BadMannger = 1,
+        BugUsing = 2,
+        AFK = 3,
+        Etc = 4
+    }
+
     public enum MissionRewardType : byte
     {
         PEN = 1
@@ -71,7 +80,8 @@ namespace Netsphere
         Pants = 3,
         Gloves = 4,
         Shoes = 5,
-        Accessory = 6
+        Accessory = 6,
+        Pet = 7
     }
 
     public enum WeaponSlot : byte
@@ -156,22 +166,24 @@ namespace Netsphere
         Practice = 4,
         Tutorial = 5,
         SemiTouchdown = 6, // Dev
-        Arcade = 7,
+        Scenario = 7,
         Chaser = 8,
         BattleRoyal = 9,
-        Captain = 10
-
-        //Siege = 11,
-        //Horde = 12,
-        //Challenge = 13,
-        //Random = 14,
+        Captain = 10,
+        Siege = 11,
+        Conquest = 12,
+        Training = 13,
+        Random = 14,
+        Warfare = 15,
+        Arena = 20
     }
 
     public enum GameState : uint
     {
         Waiting = 1,
         Playing = 2,
-        Result = 3
+        Result = 3,
+        Loading = 4
     }
 
     public enum GameTimeState : uint
@@ -303,6 +315,29 @@ namespace Netsphere
     {
         Add = 0,
         Remove = 1
+    }
+
+    public enum FriendAction : uint
+    {
+        Add = 0,
+        Remove = 1,
+        AcceptRequest = 2,
+        DenyRequest = 3
+    }
+
+    public enum FriendActionResult : uint
+    {
+        Success = 0,
+        UserDoesNotExist = 1
+    }
+
+    public enum FriendState : uint
+    {
+        Requested = 1,
+        Friends = 2,
+        IncomingRequest = 3,
+        Removed = 4,
+        OnlyInMyList = 5
     }
 
     public enum ActorState : byte
@@ -470,118 +505,86 @@ namespace Netsphere
         Bind = 16
     }
 
-    public enum Attribute
+    public enum EffectType
     {
-        HP,
-        MP,
-        EXP,
-        PEN,
-        MeleeDefense,
-        HeavyDefense,
-        InstallDefense,
-        ThrowDefense,
-        MindDefense,
-        MissileDefense,
-        MissileDefenseHead,
-        MissileDefenseUpper,
-        MissileDefenseLower,
-        SnipeDefense,
-        SnipeDefenseHead,
-        SnipeDefenseUpper,
-        SnipeDefenseLower,
-        AllWeaponDefense,
-        PlasmaAttack,
-        CounterAttack,
-        StormAttack,
-        KatanaAttack,
-        HeavyAttack,
-        SentryAttack,
-        SentiWallAttack,
-        SentiNelAttack,
-        MineAttack,
-        MindEnergy,
-        MindShock,
-        CardAttack,
-        SubmachineAttack,
-        SemiAttack,
-        RevolverAttack,
-        GaussrifleAttack,
-        RailAttack,
-        CannonadeAttack,
-        ClawAttack,
-        Smg3Attack,
-        Revolver2Attack,
-        Smg4Attack,
-        SpydaggerAttack,
-        MindOrora,
-        DoubleswordAttack,
-        AirgunAttack,
-        Smg2HomingAttack,
-        EarthBombAttack,
-        LightBombAttack,
-        ChainLightGunAttack,
-        SparkRifleAttack,
-        BreakerAttack,
-        AllWeaponAttack,
-        SubmachineReload,
-        SemiReload,
-        RevolverReload,
-        Revolver2Reload,
-        GaussrifleReload,
-        MineReload,
-        HeavyReload,
-        RailReload,
-        CannonadeReload,
-        MindEnergyReload,
-        MindShockReload,
-        Smg3Reload,
-        Smg4Reload,
-        MindOroraReload,
-        AirgunReload,
-        Smg2HomingReload,
-        EarthBombReload,
-        LightBombReload,
-        ChainLightGunReload,
-        SparkRifleReload,
-        SubmachineReloadAmmo,
-        SemiReloadAmmo,
-        RevolverReloadAmmo,
-        Revolver2ReloadAmmo,
-        GaussrifleReloadAmmo,
-        MineReloadAmmo,
-        HeavyReloadAmmo,
-        RailReloadAmmo,
-        CannonadeReloadAmmo,
-        MindEnergyReloadAmmo,
-        MindShockReloadAmmo,
-        SentryReloadAmmo,
-        SentiWallReloadAmmo,
-        SentiNelReloadAmmo,
-        Smg3ReloadAmmo,
-        Smg4ReloadAmmo,
-        MindOroraReloadAmmo,
-        AirgunReloadAmmo,
-        Smg2HomingReloadAmmo,
-        EarthBombReloadAmmo,
-        LightBombReloadAmmo,
-        ChainLightGunReloadAmmo,
-        SparkRifleReloadAmmo,
-        MineMaxAmmo,
-        EarthBombMaxAmmo,
-        LightBombMaxAmmo,
-        ChaserCastRate,
-        ChaserMovespeed,
-        Movespeed,
-        AIAttackMelee,
-        AIAttackHeavy,
-        AIAttackInstall,
-        AIAttackThrow,
-        AIAttackMind,
-        AIAttackMissile,
-        AIAttackSnipe,
-        SentryHP,
-        SentryAtkDistance,
-        SentryBuildTime
+        None = 0,
+        HP = 300,
+        SP = 301,
+        Defense = 302,
+        Attack = 303,
+        ReloadSpeed = 304,
+        ChaserMovement = 306,
+        Movespeed = 307,
+        StationaryWeaponHP = 308,
+        StationaryWeaponDistance = 309,
+        StationaryWeaponInstallSpeed = 310,
+        DefenseMelee = 311,
+        DefenseRifle = 312,
+        DefenseHead = 313,
+        DefenseGuns = 314,
+        DefenseHeadGuns = 315,
+        DefenseHeavyGuns = 316,
+        DefenseHeadHeavyGuns = 317,
+        DefenseSnipe = 318,
+        StationaryWeaponDefense = 319,
+        MentalWeaponDefense = 320,
+        DefenseThrowingWeapon = 321,
+        StunTimeReduce = 330,
+        RecoveryByHeal = 331,
+        SPRegen = 332,
+        MetallicReflectDamage = 333,
+        BlockHP = 334,
+        InvisibleTimeReduce = 335,
+        BindTimeReduce = 336,
+        CriticalRate = 337,
+        CriticalProbability = 338,
+        ChaserAttack = 339,
+        CaptainAttack = 340,
+        DamageReductionByDistance = 341,
+        WallJumpSPReduce = 342,
+        EvadeSPReduce = 343,
+        InvincibleTime = 344,
+        Accuracy = 345,
+        AnchorSPReduce = 346,
+        DetectRange = 347,
+        FlyingSPReduce = 348,
+        InvisibleSPReduce = 349,
+        ShiledSPReduce = 350,
+        BlockSPReduce = 351,
+        BindSPReduce = 352,
+        MetallicSPReduce = 353,
+        KnockbackDistance = 354,
+        StunTime = 355,
+        Blow = 356,
+        BlowReduce = 357,
+        KnockbackDistanceReduce = 358,
+        AttackBelowHealth = 359,
+        DefenseBelowHealth = 360,
+        MagnumSPReduce = 361,
+        TwinbladeChargeTimeReduce = 362,
+        IronBootsSPReduce = 363,
+        Attack2 = 600,
+        Magazine = 601,
+        Movespeed2 = 602,
+        ObjectAttack = 605,
+        ChargeTimeReduce = 607,
+        ChargeAttack = 608,
+        Zoom = 609,
+        Magazine2 = 613,
+        Experience = 800,
+        DefensePiercing = 606,
+        PENGain = 801,
+        ChaserChance = 802,
+        FastSiege = 803,
+        CoinFromKill = 804,
+        ExperienceFromKill = 805,
+        PENFromKill = 806,
+        MPGain = 807,
+        EnchantJackpotDoubleChance = 808,
+        SuccessRate = 809,
+        PreventReset = 810,
+        UniqueBooster = 811
+
     }
 
     public enum ChatType : uint
@@ -596,13 +599,31 @@ namespace Netsphere
         AP = 1
     }
 
-    public enum EquipLimit : byte
+    public enum XBNType : uint
     {
-        S4League = 0,
-        SuperLeague = 1,
-        RookieLeague = 2,
-        SwordMatch = 3,
-        Arcade = 4,
-        Chaser = 5
+        ConstantInfo = 1,
+        Actions = 2,
+        Weapons = 3,
+        Effects = 4,
+        EffectMatch = 5,
+        EnchantData = 6,
+        EquipLimit = 7,
+        MonsterStatus = 8,
+        MonsterMapMiddle = 9
+    }
+
+    [Flags]
+    public enum RoomSettings : uint
+    {
+        None = 0,
+        IsFriendly = 1,
+        EnableBurningBuff = 2
+    }
+
+    public enum RoomRandomSettings : uint
+    {
+        None = 0,
+        Map = 1,
+        ModeAndMap = 2
     }
 }

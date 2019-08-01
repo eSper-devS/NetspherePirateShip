@@ -7,6 +7,7 @@ namespace Netsphere.Database.Game
     public class PlayerDenyEntity
     {
         [Key]
+        [DatabaseGenerated(DatabaseGeneratedOption.None)]
         public long Id { get; set; }
 
         [Column]

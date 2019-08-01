@@ -4,7 +4,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using ExpressMapper.Extensions;
 using Logging;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Netsphere.Common;
 using Netsphere.Common.Configuration;
@@ -14,14 +13,13 @@ using Netsphere.Database.Helpers;
 using Netsphere.Network;
 using Netsphere.Network.Data.Game;
 using Netsphere.Network.Message.Game;
+using Netsphere.Network.Message.GameRule;
 using Netsphere.Server.Game.Services;
 
 namespace Netsphere.Server.Game
 {
     public class Player : DatabaseObject, ISaveable
     {
-        private static readonly uint[] s_licensesCompleted;
-
         private ILogger _logger;
         private readonly GameOptions _gameOptions;
         private readonly DatabaseService _databaseService;
@@ -37,7 +35,6 @@ namespace Netsphere.Server.Game
         public Session Session { get; private set; }
         public Account Account { get; private set; }
         public CharacterManager CharacterManager { get; }
-        public LicenseManager LicenseManager { get; }
         public PlayerInventory Inventory { get; }
         public byte TutorialState
         {
@@ -95,6 +92,8 @@ namespace Netsphere.Server.Game
         public DateTimeOffset StartPlayTime { get; internal set; }
         public DateTimeOffset[] CharacterStartPlayTime { get; internal set; }
         public bool IsInGMMode { get; set; }
+        public bool IsLoading { get; internal set; }
+        public byte RoomJoinCounter { get; internal set; }
 
         public event EventHandler<PlayerEventArgs> Disconnected;
         public event EventHandler<PlayerEventArgs> StateChanged;
@@ -118,23 +117,15 @@ namespace Netsphere.Server.Game
             NicknameCreated?.Invoke(this, new NicknameEventArgs(this, nickname));
         }
 
-        static Player()
-        {
-            s_licensesCompleted = new uint[100];
-            for (uint i = 0; i < 100; ++i)
-                s_licensesCompleted[i] = i;
-        }
-
         public Player(ILogger<Player> logger, IOptions<GameOptions> gameOptions, DatabaseService databaseService,
             GameDataService gameDataService,
-            CharacterManager characterManager, LicenseManager licenseManager, PlayerInventory inventory)
+            CharacterManager characterManager, PlayerInventory inventory)
         {
             _logger = logger;
             _gameOptions = gameOptions.Value;
             _databaseService = databaseService;
             _gameDataService = gameDataService;
             CharacterManager = characterManager;
-            LicenseManager = licenseManager;
             Inventory = inventory;
             CharacterStartPlayTime = new DateTimeOffset[3];
         }
@@ -150,14 +141,13 @@ namespace Netsphere.Server.Game
             _ap = (uint)entity.AP;
             _coins1 = (uint)entity.Coins1;
             _coins2 = (uint)entity.Coins2;
-            LicenseManager.Initialize(this, entity.Licenses);
             Inventory.Initialize(this, entity);
             CharacterManager.Initialize(this, entity);
         }
 
         public void Disconnect()
         {
-            var _ = DisconnectAsync();
+            _ = DisconnectAsync();
         }
 
         public Task DisconnectAsync()
@@ -260,7 +250,7 @@ namespace Netsphere.Server.Game
         public float GetMaxHP()
         {
             return _gameDataService.GameTempos["GAMETEMPO_FREE"].ActorDefaultHPMax +
-                   GetAttributeValue(Attribute.HP);
+                   GetAttributeValue(EffectType.HP);
         }
 
         /// <summary>
@@ -268,7 +258,7 @@ namespace Netsphere.Server.Game
         /// </summary>
         /// <param name="attribute">The attribute to retrieve</param>
         /// <returns></returns>
-        public float GetAttributeValue(Attribute attribute)
+        public float GetAttributeValue(EffectType attribute)
         {
             if (CharacterManager.CurrentCharacter == null)
                 return 0;
@@ -286,7 +276,7 @@ namespace Netsphere.Server.Game
         /// </summary>
         /// <param name="attribute">The attribute to retrieve</param>
         /// <returns></returns>
-        public float GetAttributeRate(Attribute attribute)
+        public float GetAttributeRate(EffectType attribute)
         {
             if (CharacterManager.CurrentCharacter == null)
                 return 0;
@@ -301,17 +291,12 @@ namespace Netsphere.Server.Game
 
         public async Task SendAccountInformation()
         {
-            var licenses = _gameOptions.EnableLicenseRequirement
-                ? LicenseManager.Select(x => (uint)x.ItemLicense).ToArray()
-                : s_licensesCompleted;
-
-            Session.Send(new SMyLicenseInfoAckMessage(licenses));
-            Session.Send(new SInventoryInfoAckMessage
+            Session.Send(new ItemInventoryInfoAckMessage
             {
                 Items = Inventory.Select(x => x.Map<PlayerItem, ItemDto>()).ToArray()
             });
 
-            Session.Send(new SCharacterSlotInfoAckMessage
+            Session.Send(new CharacterCurrentSlotInfoAckMessage
             {
                 ActiveCharacter = CharacterManager.CurrentSlot,
                 CharacterCount = (byte)CharacterManager.Count,
@@ -320,7 +305,7 @@ namespace Netsphere.Server.Game
 
             foreach (var character in CharacterManager)
             {
-                Session.Send(new SOpenCharacterInfoAckMessage
+                Session.Send(new CharacterCurrentInfoAckMessage
                 {
                     Slot = character.Slot,
                     Style = new CharacterStyle(character.Gender, character.Slot,
@@ -328,7 +313,7 @@ namespace Netsphere.Server.Game
                         character.Shirt.Variation, character.Pants.Variation)
                 });
 
-                var message = new SCharacterEquipInfoAckMessage
+                var message = new CharacterCurrentItemInfoAckMessage
                 {
                     Slot = character.Slot,
                     Weapons = character.Weapons.GetItems().Select(x => x?.Id ?? 0).ToArray(),
@@ -339,77 +324,24 @@ namespace Netsphere.Server.Game
                 Session.Send(message);
             }
 
-            Session.Send(new SRefreshCashInfoAckMessage(PEN, AP));
-            Session.Send(new SSetCoinAckMessage(Coins1, Coins2));
-            Session.Send(new SServerResultInfoAckMessage(ServerResult.WelcomeToS4World));
-            Session.Send(new SBeginAccountInfoAckMessage
+            SendMoneyUpdate();
+            Session.Send(new ServerResultAckMessage(ServerResult.WelcomeToS4World));
+            Session.Send(new PlayerAccountInfoAckMessage(new PlayerAccountInfoDto
             {
                 Level = (byte)Level,
-                TotalExp = TotalExperience,
+                TotalExperience = TotalExperience,
                 AP = AP,
                 PEN = PEN,
                 TutorialState = (uint)(_gameOptions.EnableTutorial ? TutorialState : 2),
-                Nickname = Account.Nickname
-            });
-
-            Session.Send(new SServerResultInfoAckMessage(ServerResult.WelcomeToS4World2));
-
-            if (Inventory.Count == 0)
-            {
-                IEnumerable<StartItemEntity> startItems;
-                using (var db = _databaseService.Open<GameContext>())
-                {
-                    var securityLevel = (byte)Account.SecurityLevel;
-                    startItems = await db.StartItems.Where(x => x.RequiredSecurityLevel <= securityLevel).ToArrayAsync();
-                }
-
-                foreach (var startItem in startItems)
-                {
-                    var item = _gameDataService.ShopItems.Values.First(group =>
-                        group.GetItemInfo(startItem.ShopItemInfoId) != null);
-                    var itemInfo = item.GetItemInfo(startItem.ShopItemInfoId);
-                    var effect = itemInfo.EffectGroup.GetEffect(startItem.ShopEffectId);
-
-                    if (itemInfo == null)
-                    {
-                        _logger.Warning("Cant find ShopItemInfo for Start item {startItemId} - Forgot to reload the cache?",
-                            startItem.Id);
-                        continue;
-                    }
-
-                    var price = itemInfo.PriceGroup.GetPrice(startItem.ShopPriceId);
-                    if (price == null)
-                    {
-                        _logger.Warning("Cant find ShopPrice for Start item {startItemId} - Forgot to reload the cache?",
-                            startItem.Id);
-                        continue;
-                    }
-
-                    var color = startItem.Color;
-                    if (color > item.ColorGroup)
-                    {
-                        _logger.Warning("Start item {startItemId} has an invalid color {color}", startItem.Id, color);
-                        color = 0;
-                    }
-
-                    var count = startItem.Count;
-                    if (count > 0 && item.ItemNumber.Category <= ItemCategory.Skill)
-                    {
-                        _logger.Warning("Start item {startItemId} cant have stacks(quantity={count})", startItem.Id, count);
-                        count = 0;
-                    }
-
-                    if (count < 0)
-                        count = 0;
-
-                    Inventory.Create(itemInfo, price, color, effect.Effect, (uint)count);
-                }
-            }
+                Nickname = Account.Nickname,
+                IsGM = Account.SecurityLevel > SecurityLevel.User
+            }));
         }
 
         public void SendMoneyUpdate()
         {
-            Session.Send(new SRefreshCashInfoAckMessage(PEN, AP));
+            Session.Send(new MoneyRefreshCashInfoAckMessage(PEN, AP));
+            Session.Send(new MoenyRefreshCoinInfoAckMessage(Coins1, Coins2));
         }
 
         /// <summary>
@@ -418,7 +350,7 @@ namespace Netsphere.Server.Game
         /// <param name="message">The message to send</param>
         public void SendConsoleMessage(string message)
         {
-            Session.Send(new SAdminActionAckMessage(message));
+            Session.Send(new AdminActionAckMessage(0, message));
         }
 
         /// <summary>
@@ -427,7 +359,16 @@ namespace Netsphere.Server.Game
         /// <param name="message">The message to send</param>
         public void SendNotice(string message)
         {
-            Session.Send(new SNoticeMessageAckMessage(message));
+            Session.Send(new NoticeAdminMessageAckMessage(message));
+        }
+
+        public void SendBriefing()
+        {
+            if (Room == null)
+                return;
+
+            var briefing = Room.GetBriefing();
+            Session.Send(new GameBriefingInfoAckMessage(false, false, briefing.GetData()));
         }
 
         public async Task Save(GameContext db)
@@ -449,7 +390,6 @@ namespace Netsphere.Server.Game
                 SetDirtyState(false);
             }
 
-            await LicenseManager.Save(db);
             await Inventory.Save(db);
             await CharacterManager.Save(db);
         }
@@ -459,26 +399,23 @@ namespace Netsphere.Server.Game
             return logger.ForContext(
                 ("AccountId", Account.Id),
                 ("HostId", Session.HostId),
-                ("EndPoint", Session.RemoteEndPoint.ToString()));
+                ("EndPoint", Session.RemoteEndPoint.ToString())
+            );
         }
 
-        private static float GetAttributeValueFromItems(Attribute attribute, IEnumerable<PlayerItem> items)
+        private static float GetAttributeValueFromItems(EffectType attribute, IEnumerable<PlayerItem> items)
         {
             return items.Where(item => item != null)
-                .Select(item => item.GetItemEffect())
-                .Where(effect => effect != null)
-                .SelectMany(effect => effect.Attributes)
-                .Where(attrib => attrib.Attribute == attribute)
+                .SelectMany(item => item.GetItemEffects())
+                .Where(effect => effect != null && effect.EffectType == attribute)
                 .Sum(attrib => attrib.Value);
         }
 
-        private static float GetAttributeRateFromItems(Attribute attribute, IEnumerable<PlayerItem> items)
+        private static float GetAttributeRateFromItems(EffectType attribute, IEnumerable<PlayerItem> items)
         {
             return items.Where(item => item != null)
-                .Select(item => item.GetItemEffect())
-                .Where(effect => effect != null)
-                .SelectMany(effect => effect.Attributes)
-                .Where(attrib => attrib.Attribute == attribute)
+                .SelectMany(item => item.GetItemEffects())
+                .Where(effect => effect != null && effect.EffectType == attribute)
                 .Sum(attrib => attrib.Rate);
         }
     }

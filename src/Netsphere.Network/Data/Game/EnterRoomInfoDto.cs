@@ -11,58 +11,48 @@ namespace Netsphere.Network.Data.Game
         public uint RoomId { get; set; }
 
         [BlubMember(1)]
-        public MatchKey MatchKey { get; set; }
+        public Netsphere.GameRule GameRule { get; set; }
 
         [BlubMember(2)]
-        public GameState State { get; set; }
+        public byte MapId { get; set; }
 
         [BlubMember(3)]
-        public GameTimeState TimeState { get; set; }
+        public byte PlayerLimit { get; set; }
 
         [BlubMember(4)]
-        public uint TimeLimit { get; set; }
+        public GameTimeState TimeState { get; set; }
 
         [BlubMember(5)]
-        public uint Unk1 { get; set; }
+        public GameState State { get; set; }
 
         [BlubMember(6)]
-        public uint TimeSync { get; set; }
+        public uint TimeLimit { get; set; }
 
         [BlubMember(7)]
-        public uint ScoreLimit { get; set; }
+        public int Unk1 { get; set; }
 
         [BlubMember(8)]
-        public bool IsFriendly { get; set; }
+        public uint TimeSync { get; set; }
 
         [BlubMember(9)]
-        public bool IsBalanced { get; set; }
+        public uint ScoreLimit { get; set; }
 
         [BlubMember(10)]
-        public byte MinLevel { get; set; }
-
-        [BlubMember(11)]
-        public byte MaxLevel { get; set; }
-
-        [BlubMember(12)]
-        public EquipLimit EquipLimit { get; set; }
-
-        [BlubMember(13)]
-        public bool IsNoIntrusion { get; set; }
-
-        [BlubMember(14)]
         public byte Unk2 { get; set; }
 
-        [BlubMember(15)]
+        [BlubMember(11)]
         [BlubSerializer(typeof(IPEndPointAddressStringSerializer))]
         public IPEndPoint RelayEndPoint { get; set; }
 
-        [BlubMember(16)]
+        [BlubMember(13)]
         public bool CreatedRoom { get; set; }
+
+        [BlubMember(14)]
+        public int Unk4 { get; set; }
 
         public EnterRoomInfoDto()
         {
-            MatchKey = 0;
-            CreatedRoom = false;
+            RelayEndPoint = new IPEndPoint(0, 0);
         }
     }
 }

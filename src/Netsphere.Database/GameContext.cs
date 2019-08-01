@@ -8,8 +8,8 @@ namespace Netsphere.Database
         public DbSet<PlayerEntity> Players { get; set; }
         public DbSet<PlayerCharacterEntity> PlayerCharacters { get; set; }
         public DbSet<PlayerDenyEntity> PlayerIgnores { get; set; }
+        public DbSet<PlayerFriendEntity> PlayerFriends { get; set; }
         public DbSet<PlayerItemEntity> PlayerItems { get; set; }
-        public DbSet<PlayerLicenseEntity> PlayerLicenses { get; set; }
         public DbSet<PlayerMailEntity> PlayerMails { get; set; }
         public DbSet<PlayerSettingEntity> PlayerSettings { get; set; }
         public DbSet<ShopEffectGroupEntity> EffectGroups { get; set; }
@@ -20,8 +20,8 @@ namespace Netsphere.Database
         public DbSet<ShopItemInfoEntity> ItemInfos { get; set; }
         public DbSet<ShopVersionEntity> ShopVersion { get; set; }
         public DbSet<StartItemEntity> StartItems { get; set; }
-        public DbSet<LicenseRewardEntity> LicenseRewards { get; set; }
         public DbSet<LevelRewardEntity> LevelRewards { get; set; }
+        public DbSet<ChannelEntity> Channels { get; set; }
 
         public GameContext(DbContextOptions<GameContext> options)
             : base(options)
@@ -42,6 +42,13 @@ namespace Netsphere.Database
 
             modelBuilder.Entity<PlayerDenyEntity>()
                 .HasOne(x => x.DenyPlayer);
+
+            modelBuilder.Entity<PlayerFriendEntity>()
+                .HasOne(x => x.Player)
+                .WithMany(x => x.Friends);
+
+            modelBuilder.Entity<PlayerFriendEntity>()
+                .HasOne(x => x.FriendPlayer);
 
             modelBuilder.Entity<PlayerMailEntity>()
                 .HasOne(x => x.Player)

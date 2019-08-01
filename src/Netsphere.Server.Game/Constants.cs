@@ -86,6 +86,8 @@ namespace Netsphere.Server.Game
     public enum GameRuleState
     {
         Waiting,
+        Loading,
+        Starting,
         Playing,
         EnteringResult,
         Result,

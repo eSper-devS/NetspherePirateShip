@@ -174,7 +174,9 @@ namespace Netsphere.Tools.ShopEditor.Services
             {
                 var itemEntity = new ShopItemEntity
                 {
-                    Id = itemNumber
+                    Id = itemNumber,
+                    MainTab = 1,
+                    SubTab = 1
                 };
                 db.Items.Add(itemEntity);
                 await db.SaveChangesAsync();
@@ -240,7 +242,8 @@ namespace Netsphere.Tools.ShopEditor.Services
                     .Where(x => x.Id == effectGroup.Id)
                     .UpdateAsync(x => new ShopEffectGroupEntity
                     {
-                        Name = effectGroup.Name.Value
+                        Name = effectGroup.Name.Value,
+                        PreviewEffect = effectGroup.PreviewEffect.Value
                     });
             }
         }
@@ -267,14 +270,15 @@ namespace Netsphere.Tools.ShopEditor.Services
                     .UpdateAsync(x => new ShopItemEntity
                     {
                         RequiredGender = (byte)item.RequiredGender.Value,
-                        RequiredLicense = (byte)item.RequiredLicense.Value,
                         Colors = item.Colors.Value,
                         UniqueColors = item.UniqueColors.Value,
                         RequiredLevel = item.RequiredLevel.Value,
                         LevelLimit = item.LevelLimit.Value,
                         RequiredMasterLevel = item.RequiredMasterLevel.Value,
                         IsOneTimeUse = item.IsOneTimeUse.Value,
-                        IsDestroyable = item.IsDestroyable.Value
+                        IsDestroyable = item.IsDestroyable.Value,
+                        MainTab = item.MainTab.Value,
+                        SubTab = item.SubTab.Value
                     });
             }
         }

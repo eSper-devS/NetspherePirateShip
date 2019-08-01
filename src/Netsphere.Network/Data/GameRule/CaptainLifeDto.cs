@@ -10,5 +10,15 @@ namespace Netsphere.Network.Data.GameRule
 
         [BlubMember(1)]
         public float HP { get; set; }
+
+        public CaptainLifeDto()
+        {
+        }
+
+        public CaptainLifeDto(ulong accountId, float hp)
+        {
+            AccountId = accountId;
+            HP = hp;
+        }
     }
 }

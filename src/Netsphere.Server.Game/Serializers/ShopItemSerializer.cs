@@ -46,6 +46,9 @@ namespace Netsphere.Server.Game.Serializers
                 writer.Write(0); // RepairCost
                 writer.Write(item.IsOneTimeUse);
                 writer.Write(!item.IsDestroyable);
+                writer.Write((ushort)item.MainTab);
+                writer.Write((ushort)item.SubTab);
+                writer.Write((ushort)0); // shop_order
 
                 writer.Write(item.ItemInfos.Count);
                 foreach (var info in item.ItemInfos)
@@ -54,7 +57,7 @@ namespace Netsphere.Server.Game.Serializers
                     writer.WriteEnum(info.PriceGroup.PriceType);
                     writer.Write((ushort)info.Discount);
                     writer.WriteProudString(info.PriceGroup.Id.ToString());
-                    writer.WriteProudString(info.EffectGroup.Effects.Count > 0 ? info.EffectGroup.Id.ToString() : "");
+                    writer.Write(info.EffectGroup.PreviewEffect);
                 }
             }
         }

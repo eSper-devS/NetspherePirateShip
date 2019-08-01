@@ -3,7 +3,6 @@
     public class GameOptions
     {
         public bool EnableTutorial { get; set; }
-        public bool EnableLicenseRequirement { get; set; }
         public int MaxLevel { get; set; }
         public int StartLevel { get; set; }
         public int StartPEN { get; set; }
@@ -16,6 +15,7 @@
         public DeathmatchOptions Deathmatch { get; set; }
         public TouchdownOptions Touchdown { get; set; }
         public BattleRoyalOptions BattleRoyal { get; set; }
+        public CaptainOptions Captain { get; set; }
     }
 
     public class DeathmatchOptions
@@ -51,6 +51,17 @@
         public int PointsPerBonusKill { get; set; }
         public int PointsPerBonusAssist { get; set; }
         public int PointsPerDeath { get; set; }
+    }
+
+    public class CaptainOptions
+    {
+        public ExperienceRateOptions ExperienceRates { get; set; }
+        public int PointsPerKill { get; set; }
+        public int PointsPerKillAssist { get; set; }
+        public int PointsPerCaptainKill { get; set; }
+        public int PointsPerRoundWin { get; set; }
+        public int PointsPerSuicide { get; set; }
+        public int PointsPerHeal { get; set; }
     }
 
     public class ExperienceRateOptions

@@ -17,6 +17,34 @@ namespace Netsphere.Database.Migrations.Game
                 .HasAnnotation("ProductVersion", "2.1.4-rtm-31024")
                 .HasAnnotation("Relational:MaxIdentifierLength", 64);
 
+            modelBuilder.Entity("Netsphere.Database.Game.ChannelEntity", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd();
+
+                    b.Property<string>("Color")
+                        .IsRequired()
+                        .HasMaxLength(8);
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(40);
+
+                    b.Property<int>("MaxLevel");
+
+                    b.Property<int>("MinLevel");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(40);
+
+                    b.Property<int>("PlayerLimit");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("channels");
+                });
+
             modelBuilder.Entity("Netsphere.Database.Game.LevelRewardEntity", b =>
                 {
                     b.Property<int>("Level");
@@ -28,26 +56,6 @@ namespace Netsphere.Database.Migrations.Game
                     b.HasKey("Level");
 
                     b.ToTable("level_rewards");
-                });
-
-            modelBuilder.Entity("Netsphere.Database.Game.LicenseRewardEntity", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd();
-
-                    b.Property<byte>("Color");
-
-                    b.Property<int>("ShopItemInfoId");
-
-                    b.Property<int>("ShopPriceId");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ShopItemInfoId");
-
-                    b.HasIndex("ShopPriceId");
-
-                    b.ToTable("license_rewards");
                 });
 
             modelBuilder.Entity("Netsphere.Database.Game.PlayerCharacterEntity", b =>
@@ -74,6 +82,8 @@ namespace Netsphere.Database.Migrations.Game
                     b.Property<long?>("HairId");
 
                     b.Property<long?>("PantsId");
+
+                    b.Property<long?>("PetId");
 
                     b.Property<int>("PlayerId");
 
@@ -103,6 +113,8 @@ namespace Netsphere.Database.Migrations.Game
 
                     b.HasIndex("PantsId");
 
+                    b.HasIndex("PetId");
+
                     b.HasIndex("PlayerId");
 
                     b.HasIndex("ShirtId");
@@ -122,8 +134,7 @@ namespace Netsphere.Database.Migrations.Game
 
             modelBuilder.Entity("Netsphere.Database.Game.PlayerDenyEntity", b =>
                 {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd();
+                    b.Property<long>("Id");
 
                     b.Property<int>("DenyPlayerId");
 
@@ -162,6 +173,25 @@ namespace Netsphere.Database.Migrations.Game
                     b.ToTable("players");
                 });
 
+            modelBuilder.Entity("Netsphere.Database.Game.PlayerFriendEntity", b =>
+                {
+                    b.Property<long>("Id");
+
+                    b.Property<int>("FriendPlayerId");
+
+                    b.Property<int>("PlayerId");
+
+                    b.Property<byte>("State");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FriendPlayerId");
+
+                    b.HasIndex("PlayerId");
+
+                    b.ToTable("player_friends");
+                });
+
             modelBuilder.Entity("Netsphere.Database.Game.PlayerItemEntity", b =>
                 {
                     b.Property<long>("Id")
@@ -169,11 +199,13 @@ namespace Netsphere.Database.Migrations.Game
 
                     b.Property<byte>("Color");
 
-                    b.Property<int>("Count");
-
                     b.Property<int>("Durability");
 
-                    b.Property<uint>("Effect");
+                    b.Property<string>("Effects");
+
+                    b.Property<int>("MP");
+
+                    b.Property<int>("MPLevel");
 
                     b.Property<int>("PlayerId");
 
@@ -192,26 +224,6 @@ namespace Netsphere.Database.Migrations.Game
                     b.HasIndex("ShopPriceId");
 
                     b.ToTable("player_items");
-                });
-
-            modelBuilder.Entity("Netsphere.Database.Game.PlayerLicenseEntity", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd();
-
-                    b.Property<int>("CompletedCount");
-
-                    b.Property<long>("FirstCompletedDate");
-
-                    b.Property<byte>("License");
-
-                    b.Property<int>("PlayerId");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("PlayerId");
-
-                    b.ToTable("player_licenses");
                 });
 
             modelBuilder.Entity("Netsphere.Database.Game.PlayerMailEntity", b =>
@@ -293,6 +305,8 @@ namespace Netsphere.Database.Migrations.Game
                         .IsRequired()
                         .HasMaxLength(20);
 
+                    b.Property<uint>("PreviewEffect");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Name")
@@ -314,6 +328,8 @@ namespace Netsphere.Database.Migrations.Game
 
                     b.Property<byte>("LevelLimit");
 
+                    b.Property<byte>("MainTab");
+
                     b.Property<byte>("RequiredGender");
 
                     b.Property<byte>("RequiredLevel");
@@ -321,6 +337,8 @@ namespace Netsphere.Database.Migrations.Game
                     b.Property<byte>("RequiredLicense");
 
                     b.Property<byte>("RequiredMasterLevel");
+
+                    b.Property<byte>("SubTab");
 
                     b.Property<byte>("UniqueColors");
 
@@ -421,11 +439,7 @@ namespace Netsphere.Database.Migrations.Game
 
                     b.Property<byte>("Color");
 
-                    b.Property<int>("Count");
-
                     b.Property<byte>("RequiredSecurityLevel");
-
-                    b.Property<int>("ShopEffectId");
 
                     b.Property<int>("ShopItemInfoId");
 
@@ -433,26 +447,11 @@ namespace Netsphere.Database.Migrations.Game
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ShopEffectId");
-
                     b.HasIndex("ShopItemInfoId");
 
                     b.HasIndex("ShopPriceId");
 
                     b.ToTable("start_items");
-                });
-
-            modelBuilder.Entity("Netsphere.Database.Game.LicenseRewardEntity", b =>
-                {
-                    b.HasOne("Netsphere.Database.Game.ShopItemInfoEntity", "ShopItemInfo")
-                        .WithMany()
-                        .HasForeignKey("ShopItemInfoId")
-                        .OnDelete(DeleteBehavior.Cascade);
-
-                    b.HasOne("Netsphere.Database.Game.ShopPriceEntity", "ShopPrice")
-                        .WithMany()
-                        .HasForeignKey("ShopPriceId")
-                        .OnDelete(DeleteBehavior.Cascade);
                 });
 
             modelBuilder.Entity("Netsphere.Database.Game.PlayerCharacterEntity", b =>
@@ -476,6 +475,10 @@ namespace Netsphere.Database.Migrations.Game
                     b.HasOne("Netsphere.Database.Game.PlayerItemEntity", "Pants")
                         .WithMany()
                         .HasForeignKey("PantsId");
+
+                    b.HasOne("Netsphere.Database.Game.PlayerItemEntity", "Pet")
+                        .WithMany()
+                        .HasForeignKey("PetId");
 
                     b.HasOne("Netsphere.Database.Game.PlayerEntity", "Player")
                         .WithMany("Characters")
@@ -520,6 +523,19 @@ namespace Netsphere.Database.Migrations.Game
                         .OnDelete(DeleteBehavior.Cascade);
                 });
 
+            modelBuilder.Entity("Netsphere.Database.Game.PlayerFriendEntity", b =>
+                {
+                    b.HasOne("Netsphere.Database.Game.PlayerEntity", "FriendPlayer")
+                        .WithMany()
+                        .HasForeignKey("FriendPlayerId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("Netsphere.Database.Game.PlayerEntity", "Player")
+                        .WithMany("Friends")
+                        .HasForeignKey("PlayerId")
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
             modelBuilder.Entity("Netsphere.Database.Game.PlayerItemEntity", b =>
                 {
                     b.HasOne("Netsphere.Database.Game.PlayerEntity", "Player")
@@ -535,14 +551,6 @@ namespace Netsphere.Database.Migrations.Game
                     b.HasOne("Netsphere.Database.Game.ShopPriceEntity", "ShopPrice")
                         .WithMany()
                         .HasForeignKey("ShopPriceId")
-                        .OnDelete(DeleteBehavior.Cascade);
-                });
-
-            modelBuilder.Entity("Netsphere.Database.Game.PlayerLicenseEntity", b =>
-                {
-                    b.HasOne("Netsphere.Database.Game.PlayerEntity", "Player")
-                        .WithMany("Licenses")
-                        .HasForeignKey("PlayerId")
                         .OnDelete(DeleteBehavior.Cascade);
                 });
 
@@ -603,11 +611,6 @@ namespace Netsphere.Database.Migrations.Game
 
             modelBuilder.Entity("Netsphere.Database.Game.StartItemEntity", b =>
                 {
-                    b.HasOne("Netsphere.Database.Game.ShopEffectEntity", "ShopEffect")
-                        .WithMany()
-                        .HasForeignKey("ShopEffectId")
-                        .OnDelete(DeleteBehavior.Cascade);
-
                     b.HasOne("Netsphere.Database.Game.ShopItemInfoEntity", "ShopItemInfo")
                         .WithMany()
                         .HasForeignKey("ShopItemInfoId")

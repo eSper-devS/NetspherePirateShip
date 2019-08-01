@@ -31,7 +31,7 @@ namespace Netsphere.Server.Game
             CharacterManager = characterManager;
             Weapons = new CharacterInventory(this, 3, ItemCategory.Weapon);
             Skills = new CharacterInventory(this, 1, ItemCategory.Skill);
-            Costumes = new CharacterInventory(this, 7, ItemCategory.Costume);
+            Costumes = new CharacterInventory(this, 8, ItemCategory.Costume);
             Id = entity.Id;
             Slot = entity.Slot;
             Gender = (CharacterGender)entity.Gender;
@@ -57,6 +57,7 @@ namespace Netsphere.Server.Game
             SetInventoryIfNeeded(entity.GlovesId, (byte)CostumeSlot.Gloves, Costumes);
             SetInventoryIfNeeded(entity.ShoesId, (byte)CostumeSlot.Shoes, Costumes);
             SetInventoryIfNeeded(entity.AccessoryId, (byte)CostumeSlot.Accessory, Costumes);
+            SetInventoryIfNeeded(entity.PetId, (byte)CostumeSlot.Pet, Costumes);
 
             SetInventoryIfNeeded(entity.SkillId, (byte)SkillSlot.Skill, Skills);
 
@@ -71,12 +72,12 @@ namespace Netsphere.Server.Game
 
             void SendEquip(object _, CharacterInventoryEventArgs e)
             {
-                plr.Session.Send(new SUseItemAckMessage(Slot, e.Slot, e.Item.Id, UseItemAction.Equip));
+                plr.Session.Send(new ItemUseItemAckMessage(Slot, e.Slot, e.Item.Id, UseItemAction.Equip));
             }
 
             void SendUnEquip(object _, CharacterInventoryEventArgs e)
             {
-                plr.Session.Send(new SUseItemAckMessage(Slot, e.Slot, e.Item.Id, UseItemAction.UnEquip));
+                plr.Session.Send(new ItemUseItemAckMessage(Slot, e.Slot, e.Item.Id, UseItemAction.UnEquip));
             }
 
             void SetInventoryIfNeeded(long? id, byte itemSlot, CharacterInventory characterInventory)
@@ -108,7 +109,7 @@ namespace Netsphere.Server.Game
             CharacterManager = characterManager;
             Weapons = new CharacterInventory(this, 3, ItemCategory.Weapon);
             Skills = new CharacterInventory(this, 1, ItemCategory.Skill);
-            Costumes = new CharacterInventory(this, 7, ItemCategory.Costume);
+            Costumes = new CharacterInventory(this, 8, ItemCategory.Costume);
             Id = id;
             Slot = slot;
             Gender = gender;
@@ -130,12 +131,12 @@ namespace Netsphere.Server.Game
 
             void SendEquip(object _, CharacterInventoryEventArgs e)
             {
-                CharacterManager.Player.Session.Send(new SUseItemAckMessage(Slot, e.Slot, e.Item.Id, UseItemAction.Equip));
+                CharacterManager.Player.Session.Send(new ItemUseItemAckMessage(Slot, e.Slot, e.Item.Id, UseItemAction.Equip));
             }
 
             void SendUnEquip(object _, CharacterInventoryEventArgs e)
             {
-                CharacterManager.Player.Session.Send(new SUseItemAckMessage(Slot, e.Slot, e.Item.Id, UseItemAction.UnEquip));
+                CharacterManager.Player.Session.Send(new ItemUseItemAckMessage(Slot, e.Slot, e.Item.Id, UseItemAction.UnEquip));
             }
         }
 

@@ -64,8 +64,10 @@ namespace Netsphere.Server.Game
         protected virtual void OnPlayerJoining(Player plr)
         {
             PlayerJoining?.Invoke(this, new RoomPlayerEventArgs(this, plr));
-            RoomManager.Channel.Broadcast(new SChangeGameRoomAckMessage(this.Map<Room, RoomDto>()));
-            _messageBus.PublishAsync(new PlayerUpdateMessage(plr.Account.Id, plr.TotalExperience, Id, TeamId.Neutral));
+            RoomManager.Channel.Broadcast(new RoomChangeRoomInfoAck2Message(this.Map<Room, Room2Dto>()));
+            _messageBus.PublishAsync(new PlayerUpdateMessage(
+                plr.Account.Id, plr.TotalExperience, plr.Level, Id, TeamId.Neutral
+            ));
         }
 
         internal virtual void OnPlayerJoined(Player plr)
@@ -77,22 +79,24 @@ namespace Netsphere.Server.Game
                 team = plr.Team?.Id ?? TeamId.Neutral;
 
             _messageBus.PublishAsync(new PlayerUpdateMessage(
-                plr.Account.Id, plr.TotalExperience, Id, team)
-            );
+                plr.Account.Id, plr.TotalExperience, plr.Level, Id, team
+            ));
         }
 
         protected virtual void OnPlayerLeft(Player plr)
         {
             PlayerLeft?.Invoke(this, new RoomPlayerEventArgs(this, plr));
-            RoomManager.Channel.Broadcast(new SChangeGameRoomAckMessage(this.Map<Room, RoomDto>()));
-            _messageBus.PublishAsync(new PlayerUpdateMessage(plr.Account.Id, plr.TotalExperience, 0, TeamId.Neutral));
+            RoomManager.Channel.Broadcast(new RoomChangeRoomInfoAck2Message(this.Map<Room, Room2Dto>()));
+            _messageBus.PublishAsync(new PlayerUpdateMessage(
+                plr.Account.Id, plr.TotalExperience, plr.Level, 0, TeamId.Neutral
+            ));
         }
 
         protected virtual void OnOptionsChanged()
         {
             OptionsChanged?.Invoke(this, new RoomEventArgs(this));
-            Broadcast(new SChangeRuleAckMessage(Options.Map<RoomCreationOptions, ChangeRuleDto>()));
-            RoomManager.Channel.Broadcast(new SChangeGameRoomAckMessage(this.Map<Room, RoomDto>()));
+            Broadcast(new RoomChangeRuleAckMessage(Options.Map<RoomCreationOptions, ChangeRuleDto>()));
+            RoomManager.Channel.Broadcast(new RoomChangeRoomInfoAck2Message(this.Map<Room, Room2Dto>()));
         }
 
         public Room(ILogger<Room> logger, GameRuleResolver gameRuleResolver, GameDataService gameDataService,
@@ -115,7 +119,7 @@ namespace Netsphere.Server.Game
             RoomManager = roomManager;
             Id = id;
             Options = options;
-            Map = _gameDataService.Maps.First(x => x.Id == options.MatchKey.Map);
+            Map = _gameDataService.Maps.First(x => x.Id == options.Map);
             GameRule = _gameRuleResolver.CreateGameRule(Options);
             GameRule.Initialize(this);
             GameRule.StateMachine.GameStateChanged += OnGameStateChanged;
@@ -137,7 +141,7 @@ namespace Netsphere.Server.Game
             if (plr.Room != null)
                 return RoomJoinError.AlreadyInRoom;
 
-            if (_players.Count(x => !x.Value.IsInGMMode) >= Options.MatchKey.PlayerLimit + Options.MatchKey.SpectatorLimit &&
+            if (_players.Count(x => !x.Value.IsInGMMode) >= Options.PlayerLimit + Options.SpectatorLimit &&
                 !plr.IsInGMMode)
             {
                 return RoomJoinError.RoomFull;
@@ -148,13 +152,6 @@ namespace Netsphere.Server.Game
 
             if (IsChangingRules)
                 return RoomJoinError.ChangingRules;
-
-            if (Options.IsNoIntrusion &&
-                GameRule.StateMachine.GameState == GameState.Playing &&
-                !plr.IsInGMMode)
-            {
-                return RoomJoinError.NoIntrusion;
-            }
 
             if (plr.IsInGMMode)
             {
@@ -192,7 +189,7 @@ namespace Netsphere.Server.Game
             _players.TryAdd(plr.Account.Id, plr);
             plr.Room = this;
             plr.IsConnectingToRoom = true;
-            plr.PeerId = null;
+            plr.PeerId = new LongPeerId(plr.Account.Id, plr.RoomJoinCounter++, plr.Slot, 1);
 
             if (Master == null)
             {
@@ -200,11 +197,12 @@ namespace Netsphere.Server.Game
                 ChangeHost(plr);
             }
 
-            Broadcast(new SEnteredPlayerAckMessage(plr.Map<Player, RoomPlayerDto>()));
-            plr.Session.Send(new SSuccessEnterRoomAckMessage(this.Map<Room, EnterRoomInfoDto>()));
-            plr.Session.Send(new SIdsInfoAckMessage(0, plr.Slot));
-            plr.Session.Send(new SEnteredPlayerListAckMessage(
-                _players.Values.Select(x => x.Map<Player, RoomPlayerDto>()).ToArray()));
+            Broadcast(new RoomEnterPlayerInfoAckMessage(plr.Map<Player, RoomPlayerDto>()));
+            plr.Session.Send(new RoomEnterRoomInfoAck2Message(this.Map<Room, EnterRoomInfo2Dto>()));
+            plr.Session.Send(new RoomCurrentCharacterSlotAckMessage(0, plr.Slot));
+            plr.Session.Send(new RoomPlayerInfoListForEnterPlayerAckMessage(
+                _players.Values.Select(x => x.Map<Player, RoomPlayerDto>()).ToArray())
+            );
             OnPlayerJoining(plr);
 
             return RoomJoinError.OK;
@@ -215,7 +213,7 @@ namespace Netsphere.Server.Game
             if (plr.Room != this)
                 return;
 
-            Broadcast(new Network.Message.GameRule.SLeavePlayerAckMessage(plr.Account.Id, plr.Account.Nickname, roomLeaveReason));
+            Broadcast(new RoomLeavePlayerAckMessage(plr.Account.Id, plr.Account.Nickname, roomLeaveReason));
 
             if (roomLeaveReason == RoomLeaveReason.Kicked ||
                 roomLeaveReason == RoomLeaveReason.ModeratorKick ||
@@ -228,7 +226,8 @@ namespace Netsphere.Server.Game
             plr.Room = null;
             plr.PeerId = null;
             plr.IsReady = false;
-            plr.Session.Send(new Network.Message.Game.SLeavePlayerAckMessage(plr.Account.Id));
+
+            plr.Session.Send(new RoomLeavePlayerInfoAckMessage(plr.Account.Id));
 
             OnPlayerLeft(plr);
 
@@ -257,7 +256,7 @@ namespace Netsphere.Server.Game
 
             Master = plr;
             Master.IsReady = false;
-            Broadcast(new SChangeMasterAckMessage(Master.Account.Id));
+            Broadcast(new RoomChangeMasterAckMessage(Master.Account.Id));
         }
 
         public void ChangeHost(Player plr)
@@ -267,10 +266,10 @@ namespace Netsphere.Server.Game
 
             _logger.Debug("Changing host to {Nickname} - Ping:{Ping} ms", plr.Account.Nickname, plr.Session.UnreliablePing);
             Host = plr;
-            Broadcast(new SChangeRefeReeAckMessage(Host.Account.Id));
+            Broadcast(new RoomChangeRefereeAckMessage(Host.Account.Id));
         }
 
-        public RoomChangeRulesError ChangeRules(ChangeRuleDto options)
+        public RoomChangeRulesError ChangeRules(ChangeRule2Dto options)
         {
             if (IsChangingRules)
                 return RoomChangeRulesError.AlreadyChangingRules;
@@ -283,43 +282,82 @@ namespace Netsphere.Server.Game
             if (!_gameRuleResolver.HasGameRule(new RoomCreationOptions
             {
                 Name = options.Name,
-                MatchKey = options.MatchKey,
+                GameRule = options.GameRule,
+                Map = options.Map,
+                PlayerLimit = options.PlayerLimit,
+                SpectatorLimit = options.SpectatorLimit,
                 TimeLimit = options.TimeLimit,
                 ScoreLimit = options.ScoreLimit,
                 Password = options.Password,
-                IsFriendly = options.IsFriendly,
-                IsBalanced = options.IsBalanced,
-                EquipLimit = options.EquipLimit,
-                IsNoIntrusion = options.IsNoIntrusion
+                EquipLimit = options.ItemLimit,
+                IsFriendly = options.Settings.HasFlag(RoomSettings.IsFriendly)
             }))
             {
                 return RoomChangeRulesError.InvalidGameRule;
             }
 
-            var map = _gameDataService.Maps.FirstOrDefault(x => x.Id == options.MatchKey.Map);
+            var map = _gameDataService.Maps.FirstOrDefault(x => x.Id == options.Map);
             if (map == null)
                 return RoomChangeRulesError.InvalidMap;
 
-            if (!map.GameRules.Contains(options.MatchKey.GameRule))
+            if (map.GameRule != options.GameRule)
                 return RoomChangeRulesError.InvalidGameRule;
 
-            if (options.MatchKey.PlayerLimit + options.MatchKey.SpectatorLimit < Players.Count)
+            if (options.PlayerLimit + options.SpectatorLimit < Players.Count)
                 return RoomChangeRulesError.PlayerLimitTooLow;
 
             IsChangingRules = true;
-            _schedulerService.ScheduleAsync(OnChangeRules, this, null, TimeSpan.FromSeconds(5));
 
             Options.Name = options.Name;
-            Options.MatchKey = options.MatchKey;
+            Options.GameRule = options.GameRule;
+            Options.Map = options.Map;
+            Options.PlayerLimit = options.PlayerLimit;
+            Options.SpectatorLimit = options.SpectatorLimit;
             Options.TimeLimit = options.TimeLimit;
             Options.ScoreLimit = options.ScoreLimit;
             Options.Password = options.Password;
-            Options.IsFriendly = options.IsFriendly;
-            Options.IsBalanced = options.IsBalanced;
-            Options.EquipLimit = options.EquipLimit;
-            Options.IsNoIntrusion = options.IsNoIntrusion;
+            Options.Name = options.Name;
+            Options.EquipLimit = options.ItemLimit;
+            Options.IsFriendly = options.Settings.HasFlag(RoomSettings.IsFriendly);
+            Broadcast(new RoomChangeRuleNotifyAck2Message(Options.Map<RoomCreationOptions, ChangeRule2Dto>()));
 
-            Broadcast(new SChangeRuleNotifyAckMessage(Options.Map<RoomCreationOptions, ChangeRuleDto>()));
+            GameRule.Cleanup();
+            Map = _gameDataService.Maps.First(x => x.Id == Options.Map);
+            GameRule = _gameRuleResolver.CreateGameRule(Options);
+            GameRule.Initialize(this);
+            GameRule.StateMachine.GameStateChanged += OnGameStateChanged;
+
+            foreach (var plr in Players.Values)
+            {
+                // Move spectators to normal when spectators are disabled
+                if (plr.Mode == PlayerGameMode.Spectate && !Options.IsSpectatingEnabled)
+                    plr.Mode = PlayerGameMode.Normal;
+
+                // Try to rejoin the old team first then fallback to default join
+                var team = TeamManager[plr.Team.Id];
+                TeamJoinError error;
+                if (team != null)
+                {
+                    error = team.Join(plr);
+                    if (error == TeamJoinError.OK)
+                        continue;
+                }
+
+                // Original team was full
+                // Fallback to default join and try to join another team
+                error = TeamManager.Join(plr);
+                if (error != TeamJoinError.OK && plr.Mode == PlayerGameMode.Spectate)
+                {
+                    // Should only happen when the spectator limit got reduced
+                    // Move spectators to normal when spectator slots are filled
+                    plr.Mode = PlayerGameMode.Normal;
+                    TeamManager.Join(plr);
+                }
+            }
+
+            BroadcastBriefing();
+            IsChangingRules = false;
+            OnOptionsChanged();
             return RoomChangeRulesError.OK;
         }
 
@@ -341,14 +379,19 @@ namespace Netsphere.Server.Game
                 plr.Session.Send(message);
         }
 
-        public void BroadcastBriefing()
+        public Briefing GetBriefing()
         {
             var briefing = GameRule.CreateBriefing();
             briefing.Teams = GameRule.CreateBriefingTeams();
             briefing.Players = GameRule.CreateBriefingPlayers();
             briefing.Spectators = TeamManager.Spectators.Select(x => x.Account.Id).ToArray();
+            return briefing;
+        }
 
-            Broadcast(new SBriefingAckMessage(false, false, briefing.GetData()));
+        public void BroadcastBriefing()
+        {
+            var briefing = GetBriefing();
+            Broadcast(new GameBriefingInfoAckMessage(false, false, briefing.GetData()));
         }
 
         private Player GetPlayerWithLowestPing(IEnumerable<Player> players = null)
@@ -363,13 +406,14 @@ namespace Netsphere.Server.Game
 
         private void OnGameStateChanged(object sender, EventArgs e)
         {
-            RoomManager.Channel.Broadcast(new SChangeGameRoomAckMessage(this.Map<Room, RoomDto>()));
+            RoomManager.Channel.Broadcast(new RoomChangeRoomInfoAck2Message(this.Map<Room, Room2Dto>()));
             if (GameRule.StateMachine.GameState == GameState.Result)
             {
                 foreach (var plr in Players.Values)
                 {
                     _messageBus.PublishAsync(new PlayerUpdateMessage(
-                        plr.Account.Id, plr.TotalExperience, Id, plr.Team?.Id ?? TeamId.Neutral));
+                        plr.Account.Id, plr.TotalExperience, plr.Level, Id, plr.Team?.Id ?? TeamId.Neutral
+                    ));
                 }
             }
         }
@@ -382,53 +426,8 @@ namespace Netsphere.Server.Game
                 team = plr.Team?.Id ?? TeamId.Neutral;
 
             _messageBus.PublishAsync(new PlayerUpdateMessage(
-                plr.Account.Id, plr.TotalExperience, Id, team)
-            );
-        }
-
-        private static void OnChangeRules(object This, object _)
-        {
-            var room = (Room)This;
-
-            room.GameRule.Cleanup();
-
-            room.Map = room._gameDataService.Maps.First(x => x.Id == room.Options.MatchKey.Map);
-            room.GameRule = room._gameRuleResolver.CreateGameRule(room.Options);
-            room.GameRule.Initialize(room);
-            room.GameRule.StateMachine.GameStateChanged += room.OnGameStateChanged;
-
-            foreach (var plr in room.Players.Values)
-            {
-                // Move spectators to normal when spectators are disabled
-                if (plr.Mode == PlayerGameMode.Spectate && !room.Options.MatchKey.IsObserveEnabled)
-                    plr.Mode = PlayerGameMode.Normal;
-
-                // Try to rejoin the old team first then fallback to default join
-                var team = room.TeamManager[plr.Team.Id];
-                TeamJoinError error;
-                if (team != null)
-                {
-                    error = team.Join(plr);
-                    if (error == TeamJoinError.OK)
-                        continue;
-                }
-
-                // Original team was full
-                // Fallback to default join and try to join another team
-                error = room.TeamManager.Join(plr);
-                if (error != TeamJoinError.OK && plr.Mode == PlayerGameMode.Spectate)
-                {
-                    // Should only happen when the spectator limit got reduced
-                    // Move spectators to normal when spectator slots are filled
-                    plr.Mode = PlayerGameMode.Normal;
-                    room.TeamManager.Join(plr);
-                }
-            }
-
-            room.BroadcastBriefing();
-
-            room.IsChangingRules = false;
-            room.OnOptionsChanged();
+                plr.Account.Id, plr.TotalExperience, plr.Level, Id, team
+            ));
         }
     }
 }
