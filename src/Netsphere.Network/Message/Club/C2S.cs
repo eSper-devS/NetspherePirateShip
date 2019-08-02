@@ -207,19 +207,19 @@ namespace Netsphere.Network.Message.Club
     public class ClubSearchReqMessage : IClubMessage
     {
         [BlubMember(0)]
-        public int Unk1 { get; set; }
+        public ClubSearchType SearchType { get; set; }
 
         [BlubMember(1)]
-        public string Unk2 { get; set; }
+        public string Query { get; set; }
 
         [BlubMember(2)]
-        public int Unk3 { get; set; }
+        public int Page { get; set; }
 
         [BlubMember(3)]
-        public int Unk4 { get; set; }
+        public ClubSearchSort SortBy { get; set; }
 
         [BlubMember(4)]
-        public byte Unk5 { get; set; }
+        public ClubSearchSortType SortType { get; set; }
     }
 
     [BlubContract]

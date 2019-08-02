@@ -584,7 +584,6 @@ namespace Netsphere
         SuccessRate = 809,
         PreventReset = 810,
         UniqueBooster = 811
-
     }
 
     public enum ChatType : uint
@@ -673,5 +672,26 @@ namespace Netsphere
         A = 0,
         B = 1,
         C = 2
+    }
+
+    public enum ClubSearchType : uint
+    {
+        None = 0,
+        Name = 1,
+        OwnerName = 3
+    }
+
+    public enum ClubSearchSort : uint
+    {
+        None = 0,
+        Members = 1,
+        Class = 2,
+        Points = 3
+    }
+
+    public enum ClubSearchSortType : byte
+    {
+        Descending = 0,
+        Ascending = 1
     }
 }

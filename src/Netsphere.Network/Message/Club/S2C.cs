@@ -1,4 +1,5 @@
-﻿using BlubLib.Serialization;
+﻿using System;
+using BlubLib.Serialization;
 using Netsphere.Network.Data.Club;
 using Netsphere.Network.Serializers;
 
@@ -128,11 +129,22 @@ namespace Netsphere.Network.Message.Club
     public class ClubSearchAckMessage : IClubMessage
     {
         [BlubMember(0)]
-        public int Unk1 { get; set; }
+        public int ResultCount { get; set; }
 
         [BlubMember(1)]
         [BlubSerializer(typeof(ArrayWithIntPrefixSerializer))]
-        public ClubInfoDto[] Unk2 { get; set; }
+        public ClubSearchResultDto[] Clubs { get; set; }
+
+        public ClubSearchAckMessage()
+        {
+            Clubs = Array.Empty<ClubSearchResultDto>();
+        }
+
+        public ClubSearchAckMessage(ClubSearchResultDto[] clubs)
+        {
+            ResultCount = clubs.Length;
+            Clubs = clubs;
+        }
     }
 
     [BlubContract]
@@ -154,7 +166,8 @@ namespace Netsphere.Network.Message.Club
         public string OwnerName { get; set; }
 
         [BlubMember(5)]
-        public string CreationDate { get; set; }
+        [BlubSerializer(typeof(ClubCreationDateSerializer))]
+        public DateTimeOffset CreationDate { get; set; }
 
         [BlubMember(6)]
         public ClubArea Area { get; set; }
