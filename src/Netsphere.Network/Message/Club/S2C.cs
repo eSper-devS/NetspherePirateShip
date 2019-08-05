@@ -9,7 +9,16 @@ namespace Netsphere.Network.Message.Club
     public class ClubCreateAckMessage : IClubMessage
     {
         [BlubMember(0)]
-        public int Unk { get; set; }
+        public ClubCreateResult Result { get; set; }
+
+        public ClubCreateAckMessage()
+        {
+        }
+
+        public ClubCreateAckMessage(ClubCreateResult result)
+        {
+            Result = result;
+        }
     }
 
     [BlubContract]
