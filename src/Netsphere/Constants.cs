@@ -626,14 +626,14 @@ namespace Netsphere
         ModeAndMap = 2
     }
 
-    public enum ClanMemberState : uint
+    public enum ClubMemberState : uint
     {
         None = 0,
         JoinRequested = 1,
         Joined = 2
     }
 
-    public enum ClanRole : uint
+    public enum ClubRole : uint
     {
         Master = 1,
         TemporaryMaster = 2,
@@ -693,5 +693,15 @@ namespace Netsphere
     {
         Descending = 0,
         Ascending = 1
+    }
+
+    public enum ClubCreateResult : uint
+    {
+        Success = 0,
+        Failed = 1,
+        AlreadyInClan= 2,
+        PendingJoinRequest = 3,
+        NameAlreadyExists = 4,
+        LevelRequirementNotMet = 6
     }
 }

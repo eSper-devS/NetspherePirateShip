@@ -160,7 +160,7 @@ namespace Netsphere.Network.Message.Club
     public class ClubInfoAckMessage : IClubMessage
     {
         [BlubMember(0)]
-        public int ClanId { get; set; }
+        public uint ClanId { get; set; }
 
         [BlubMember(1)]
         public string ClanIcon { get; set; }
@@ -317,13 +317,13 @@ namespace Netsphere.Network.Message.Club
         public string ClanName { get; set; }
 
         [BlubMember(3)]
-        public ClanMemberState State { get; set; }
+        public ClubMemberState State { get; set; }
 
         [BlubMember(4)]
         public int Unk5 { get; set; }
 
         [BlubMember(5)]
-        public ClanRole Role { get; set; }
+        public ClubRole Role { get; set; }
 
         [BlubMember(6)]
         public int Unk7 { get; set; }

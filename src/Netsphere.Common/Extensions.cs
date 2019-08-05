@@ -98,6 +98,11 @@ namespace Netsphere.Common
         {
             return JsonConvert.SerializeObject(This);
         }
+
+        public static string ToJson(this object This, bool formatted)
+        {
+            return JsonConvert.SerializeObject(This, formatted ? Formatting.Indented : Formatting.None);
+        }
     }
 
     public static class DnsEndPointExtensions

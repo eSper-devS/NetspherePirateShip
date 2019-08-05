@@ -15,6 +15,7 @@ using Netsphere.Common;
 using Netsphere.Common.Configuration;
 using Netsphere.Common.Plugins;
 using Netsphere.Database;
+using Netsphere.Network.Data.Club;
 using Netsphere.Network.Data.Game;
 using Netsphere.Network.Data.GameRule;
 using Netsphere.Network.Message.Club;
@@ -162,6 +163,7 @@ namespace Netsphere.Server.Game
                         .AddHostedServiceEx<ServerlistService>()
                         .AddHostedServiceEx<GameDataService>()
                         .AddHostedServiceEx<ChannelService>()
+                        .AddHostedServiceEx<ClanManager>()
                         .AddHostedServiceEx<IpcService>()
                         .AddHostedServiceEx<PlayerSaveService>()
                         .AddHostedServiceEx<CommandService>();
@@ -291,6 +293,11 @@ namespace Netsphere.Server.Game
 
                     return settings;
                 });
+
+
+            Mapper.Register<Clan, ClubSearchResultDto>()
+                .Function(dest => dest.OwnerName, src => src.Owner.Name)
+                .Function(dest => dest.MemberCount, src => src.Count);
 
             Mapper.Compile(CompilationTypes.Source);
         }

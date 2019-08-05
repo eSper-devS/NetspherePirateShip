@@ -12,6 +12,7 @@ using Netsphere.Database.Game;
 using Netsphere.Database.Helpers;
 using Netsphere.Network;
 using Netsphere.Network.Data.Game;
+using Netsphere.Network.Message.Club;
 using Netsphere.Network.Message.Game;
 using Netsphere.Network.Message.GameRule;
 using Netsphere.Server.Game.Services;
@@ -22,8 +23,8 @@ namespace Netsphere.Server.Game
     {
         private ILogger _logger;
         private readonly GameOptions _gameOptions;
-        private readonly DatabaseService _databaseService;
         private readonly GameDataService _gameDataService;
+        private readonly ClanManager _clanManager;
         private byte _tutorialState;
         private uint _totalExperience;
         private uint _pen;
@@ -36,6 +37,8 @@ namespace Netsphere.Server.Game
         public Account Account { get; private set; }
         public CharacterManager CharacterManager { get; }
         public PlayerInventory Inventory { get; }
+        public Clan Clan { get; internal set; }
+        public ClanMember ClanMember => Clan?.GetMember(Account.Id);
         public byte TutorialState
         {
             get => _tutorialState;
@@ -116,14 +119,13 @@ namespace Netsphere.Server.Game
             NicknameCreated?.Invoke(this, new NicknameEventArgs(this, nickname));
         }
 
-        public Player(ILogger<Player> logger, IOptions<GameOptions> gameOptions, DatabaseService databaseService,
-            GameDataService gameDataService,
-            CharacterManager characterManager, PlayerInventory inventory)
+        public Player(ILogger<Player> logger, IOptions<GameOptions> gameOptions, GameDataService gameDataService,
+            CharacterManager characterManager, PlayerInventory inventory, ClanManager clanManager)
         {
             _logger = logger;
             _gameOptions = gameOptions.Value;
-            _databaseService = databaseService;
             _gameDataService = gameDataService;
+            _clanManager = clanManager;
             CharacterManager = characterManager;
             Inventory = inventory;
             CharacterStartPlayTime = new DateTimeOffset[3];
@@ -140,6 +142,10 @@ namespace Netsphere.Server.Game
             _ap = (uint)entity.AP;
             _coins1 = (uint)entity.Coins1;
             _coins2 = (uint)entity.Coins2;
+
+            if (entity.ClanMember != null)
+                Clan = _clanManager[(uint)entity.ClanMember.ClanId];
+
             Inventory.Initialize(this, entity);
             CharacterManager.Initialize(this, entity);
         }
@@ -297,9 +303,7 @@ namespace Netsphere.Server.Game
 
             Session.Send(new CharacterCurrentSlotInfoAckMessage
             {
-                ActiveCharacter = CharacterManager.CurrentSlot,
-                CharacterCount = (byte)CharacterManager.Count,
-                MaxSlots = 3
+                ActiveCharacter = CharacterManager.CurrentSlot, CharacterCount = (byte)CharacterManager.Count, MaxSlots = 3
             });
 
             foreach (var character in CharacterManager)
@@ -316,7 +320,10 @@ namespace Netsphere.Server.Game
                 {
                     Slot = character.Slot,
                     Weapons = character.Weapons.GetItems().Select(x => x?.Id ?? 0).ToArray(),
-                    Skills = new[] { character.Skills.GetItem(0).Item1?.Id ?? 0 },
+                    Skills = new[]
+                    {
+                        character.Skills.GetItem(0).Item1?.Id ?? 0
+                    },
                     Clothes = character.Costumes.GetItems().Select(x => x?.Id ?? 0).ToArray()
                 };
 
@@ -335,6 +342,15 @@ namespace Netsphere.Server.Game
                 Nickname = Account.Nickname,
                 IsGM = Account.SecurityLevel > SecurityLevel.User
             }));
+
+            Session.Send(new ClubMyInfoAckMessage
+            {
+                ClanId = Clan?.Id ?? 0,
+                ClanIcon = Clan?.Icon,
+                ClanName = Clan?.Name,
+                State = ClanMember?.State ?? ClubMemberState.None,
+                Role = ClanMember?.Role ?? ClubRole.Normal
+            });
         }
 
         public void SendMoneyUpdate()

@@ -31,6 +31,7 @@ namespace Netsphere.Database.Game
         [Column]
         public byte CurrentCharacterSlot { get; set; }
 
+        public ClanMemberEntity ClanMember { get; set; }
         public List<PlayerCharacterEntity> Characters { get; set; } = new List<PlayerCharacterEntity>();
         public List<PlayerDenyEntity> Ignores { get; set; } = new List<PlayerDenyEntity>();
         public List<PlayerFriendEntity> Friends { get; set; } = new List<PlayerFriendEntity>();

@@ -150,6 +150,7 @@ namespace Netsphere.Server.Game.Handlers
                 var plr = await db.Players
                     .Include(x => x.Characters)
                     .Include(x => x.Items)
+                    .Include(x => x.ClanMember)
                     .FirstOrDefaultAsync(x => x.Id == accountEntity.Id);
 
                 if (plr == null)

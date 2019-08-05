@@ -22,6 +22,8 @@ namespace Netsphere.Database
         public DbSet<StartItemEntity> StartItems { get; set; }
         public DbSet<LevelRewardEntity> LevelRewards { get; set; }
         public DbSet<ChannelEntity> Channels { get; set; }
+        public DbSet<ClanEntity> Clans { get; set; }
+        public DbSet<ClanMemberEntity> ClanMembers { get; set; }
 
         public GameContext(DbContextOptions<GameContext> options)
             : base(options)
@@ -40,6 +42,10 @@ namespace Netsphere.Database
                 .HasOne(x => x.Player)
                 .WithMany(x => x.Ignores);
 
+            modelBuilder.Entity<PlayerEntity>()
+                .HasOne(x => x.ClanMember)
+                .WithOne(x => x.Player);
+
             modelBuilder.Entity<PlayerDenyEntity>()
                 .HasOne(x => x.DenyPlayer);
 
@@ -56,6 +62,16 @@ namespace Netsphere.Database
 
             modelBuilder.Entity<PlayerMailEntity>()
                 .HasOne(x => x.SenderPlayer);
+
+            modelBuilder.Entity<ClanEntity>()
+                .HasIndex(x => x.Name).IsUnique();
+
+            modelBuilder.Entity<ClanEntity>()
+                .HasOne(x => x.Owner);
+
+            modelBuilder.Entity<ClanEntity>()
+                .HasMany(x => x.Members)
+                .WithOne(x => x.Clan);
         }
     }
 }
