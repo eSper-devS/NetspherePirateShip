@@ -505,6 +505,7 @@ namespace Netsphere.Server.Game.Handlers
                     room.Broadcast(new RoomGameEndLoadingAckMessage(plr.Account.Id));
                     if (room.Players.Values.Where(x => x.State == PlayerState.Waiting).All(x => !x.IsLoading))
                         room.GameRule.StateMachine.StartGame();
+
                     break;
 
                 case GameState.Playing:

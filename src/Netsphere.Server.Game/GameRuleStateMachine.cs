@@ -208,7 +208,8 @@ namespace Netsphere.Server.Game
                     foreach (var plr in room.Players.Values.Where(x => x.State == PlayerState.Waiting))
                         plr.Session.Send(new RoomGamePlayCountDownAckMessage(s_startingWaitTime));
 
-                    ScheduleTrigger(GameRuleStateTrigger.StartGame, s_startingWaitTime);
+                    // The client starts the countdown after a second
+                    ScheduleTrigger(GameRuleStateTrigger.StartGame, s_startingWaitTime.Add(TimeSpan.FromSeconds(1)));
                     break;
 
                 case GameRuleState.EnteringHalfTime:
