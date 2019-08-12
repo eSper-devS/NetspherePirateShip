@@ -6,12 +6,9 @@ namespace Netsphere.Network.Data.P2P
     public class ValueDto
     {
         [BlubMember(0)]
-        public byte Unk { get; set; }
-
-        [BlubMember(1)]
         public float Value1 { get; set; }
 
-        [BlubMember(2)]
+        [BlubMember(1)]
         public float Value2 { get; set; }
     }
 }
