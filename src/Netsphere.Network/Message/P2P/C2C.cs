@@ -311,6 +311,7 @@ namespace Netsphere.Network.Message.P2P
         public byte Unk { get; set; } // 3 bits, 5 bits
 
         [BlubMember(2)]
+        [BlubSerializer(typeof(Vector3Serializer))]
         public Vector3 Position { get; set; }
 
         [BlubMember(3)]

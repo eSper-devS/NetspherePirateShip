@@ -11,6 +11,9 @@ namespace Netsphere.Network.Data.P2P
         [BlubMember(1)]
         public int Color { get; set; }
 
+        [BlubMember(2)]
+        public int Unk { get; set; }
+
         public ItemDto()
         {
             ItemNumber = 0;

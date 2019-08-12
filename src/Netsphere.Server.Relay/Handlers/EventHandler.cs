@@ -25,7 +25,7 @@ namespace Netsphere.Server.Relay.Handlers
         [Inline]
         public Task<bool> OnHandle(MessageContext context, PacketMessage message)
         {
-            var data = message.IsCompressed ? message.Data.DecompressLZO(2048) : message.Data;
+            var data = message.IsCompressed ? message.Data.DecompressZLib() : message.Data;
 
             using (var r = data.ToBinaryReader())
             {

@@ -77,5 +77,17 @@ namespace Netsphere.Network
             w.WriteCompressed(value.Y);
             w.WriteCompressed(value.Z);
         }
+
+        public static Vector3 ReadVector3(this BinaryReader This)
+        {
+            return new Vector3(This.ReadSingle(), This.ReadSingle(), This.ReadSingle());
+        }
+
+        public static void Write(this BinaryWriter This, Vector3 value)
+        {
+            This.Write(value.X);
+            This.Write(value.Y);
+            This.Write(value.Z);
+        }
     }
 }

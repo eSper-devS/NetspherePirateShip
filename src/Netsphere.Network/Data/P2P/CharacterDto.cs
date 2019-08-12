@@ -35,7 +35,7 @@ namespace Netsphere.Network.Data.P2P
 
         [BlubMember(7)]
         [BlubSerializer(typeof(ArrayWithIntPrefixSerializer))]
-        public ItemDto[] Unk1 { get; set; }
+        public ItemDto[] Weapons2 { get; set; }
 
         [BlubMember(8)]
         [BlubSerializer(typeof(EnumSerializer), typeof(uint))]
