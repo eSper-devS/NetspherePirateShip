@@ -40,6 +40,7 @@ namespace Netsphere.Server.Game.Services
             await _messageBus.SubscribeToRequestAsync<LevelFromExperienceRequest, LevelFromExperienceResponse>(
                 OnLevelFromExperience, _cts.Token
             );
+            await _messageBus.SubscribeAsync<PlayerPeerIdMessage>(OnPlayerPeerId, _cts.Token);
         }
 
         public Task StopAsync(CancellationToken cancellationToken)
@@ -74,6 +75,15 @@ namespace Netsphere.Server.Game.Services
         private async Task<LevelFromExperienceResponse> OnLevelFromExperience(LevelFromExperienceRequest request)
         {
             return new LevelFromExperienceResponse(_gameDataService.GetLevelFromExperience(request.TotalExperience).Level);
+        }
+
+        private Task OnPlayerPeerId(PlayerPeerIdMessage message)
+        {
+            var plr = _playerManager[message.AccountId];
+            if (plr.PeerId == null)
+                plr.PeerId = new LongPeerId(message.AccountId, message.PeerId);
+
+            return Task.CompletedTask;
         }
 
         private void ChannelOnPlayerJoined(object sender, ChannelEventArgs e)
