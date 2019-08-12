@@ -11,7 +11,7 @@ namespace EquipLimitExtended
     {
         public string Keyword { get; set; }
         public GameRule[] GameRules { get; set; }
-        public EquipLimit[] EquipLimits { get; set; }
+        public int[] EquipLimits { get; set; }
         public EquipLimitRuleMode Mode { get; set; }
         public ItemNumber[] Items { get; set; }
     }

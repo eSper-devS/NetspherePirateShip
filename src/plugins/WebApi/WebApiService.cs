@@ -63,7 +63,7 @@ namespace WebApi
             _webServer = new WebServer(options.Value.Listener);
             _webServer.RegisterModule(new WebApiModule());
 
-            foreach(var assembly in AppDomain.CurrentDomain.GetAssemblies())
+            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
             foreach (var type in assembly.DefinedTypes)
             {
                 if (type.IsClass && !type.IsAbstract && type.IsSubclassOf(typeof(WebApiController)))
@@ -141,19 +141,17 @@ namespace WebApi
                 .Member(dest => dest.GameRule, src => src.GameRule.GameRule)
                 .Function(dest => dest.State, src => src.GameRule.StateMachine.GameState)
                 .Function(dest => dest.TimeState, src => src.GameRule.StateMachine.TimeState)
-                .Member(dest => dest.PlayerLimit, src => src.Options.MatchKey.PlayerLimit)
-                .Member(dest => dest.SpectatorLimit, src => src.Options.MatchKey.SpectatorLimit)
+                .Member(dest => dest.PlayerLimit, src => src.Options.PlayerLimit)
+                .Member(dest => dest.SpectatorLimit, src => src.Options.SpectatorLimit)
                 .Member(dest => dest.Password, src => src.Options.Password)
                 .Member(dest => dest.TimeLimit, src => src.Options.TimeLimit.TotalMinutes)
                 .Member(dest => dest.ScoreLimit, src => src.Options.ScoreLimit)
                 .Member(dest => dest.IsFriendly, src => src.Options.IsFriendly)
-                .Member(dest => dest.IsBalanced, src => src.Options.IsBalanced)
-                .Member(dest => dest.MinLevel, src => src.Options.MinLevel)
-                .Member(dest => dest.MaxLevel, src => src.Options.MaxLevel)
                 .Member(dest => dest.EquipLimit, src => src.Options.EquipLimit)
-                .Member(dest => dest.IsNoIntrusion, src => src.Options.IsNoIntrusion)
-                .Function(dest => dest.Players,
-                    src => src.Players.Values.Select(x => x.Map<Player, RoomPlayerDto>()).ToArray());
+                .Function(
+                    dest => dest.Players,
+                    src => src.Players.Values.Select(x => x.Map<Player, RoomPlayerDto>()).ToArray()
+                );
 
             Mapper.Register<Player, RoomPlayerDto>()
                 .Member(dest => dest.TeamId, src => src.Team.Id)

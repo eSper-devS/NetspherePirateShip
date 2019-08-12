@@ -22,11 +22,7 @@ namespace WebApi.Models
         public int TimeLimit { get; set; }
         public ushort ScoreLimit { get; set; }
         public bool IsFriendly { get; set; }
-        public bool IsBalanced { get; set; }
-        public int MinLevel { get; set; }
-        public int MaxLevel { get; set; }
-        public EquipLimit EquipLimit { get; set; }
-        public bool IsNoIntrusion { get; set; }
+        public int EquipLimit { get; set; }
 
         public RoomPlayerDto[] Players { get; set; }
     }
