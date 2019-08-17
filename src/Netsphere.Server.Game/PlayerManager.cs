@@ -112,7 +112,11 @@ namespace Netsphere.Server.Game
             }
             catch (Exception ex)
             {
-                plr.AddContextToLogger(_logger).Error(ex, "Disconnect error");
+                var logger = _logger;
+                if (plr != null)
+                    logger = plr.AddContextToLogger(_logger);
+
+                logger.Error(ex, "Disconnect error");
             }
 
             if (plr != null)

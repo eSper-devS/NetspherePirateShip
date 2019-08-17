@@ -95,7 +95,11 @@ namespace Netsphere.Server.Relay
             }
             catch (Exception ex)
             {
-                e.Session.Channel.Pipeline.FireExceptionCaught(ex);
+                var logger = _logger;
+                if (plr != null)
+                    logger = plr.AddContextToLogger(_logger);
+
+                logger.Error(ex, "Disconnect error");
             }
 
             if (plr != null)
