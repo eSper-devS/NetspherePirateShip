@@ -58,4 +58,5 @@ namespace Netsphere.Server.Game.Handlers
             session.Send(new ClubSearchAckMessage(result));
             return true;
         }
+    }
 }
