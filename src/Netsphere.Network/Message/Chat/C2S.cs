@@ -212,7 +212,7 @@ namespace Netsphere.Network.Message.Chat
     public class ClubMemberListReqMessage : IChatMessage
     {
         [BlubMember(0)]
-        public int Unk { get; set; }
+        public uint ClanId { get; set; }
     }
 
     [BlubContract]

@@ -633,6 +633,14 @@ namespace Netsphere
         Joined = 2
     }
 
+    public enum ClubMemberPresenceState : uint
+    {
+        Offline = 0,
+        Online = 1,
+        Playing = 2,
+        a = 3
+    }
+
     public enum ClubRole : uint
     {
         Master = 1,

@@ -13,6 +13,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Netsphere.Common;
 using Netsphere.Common.Configuration;
+using Netsphere.Common.Messaging;
 using Netsphere.Common.Plugins;
 using Netsphere.Database;
 using Netsphere.Network.Data.Chat;
@@ -186,6 +187,8 @@ namespace Netsphere.Server.Chat
             Mapper.Register<Player, UserDataDto>()
                 .Member(dest => dest.Nickname, src => src.Account.Nickname)
                 .Member(dest => dest.AccountId, src => src.Account.Id);
+
+            Mapper.Register<ClanMemberInfo, ClubMemberDto>();
 
             Mapper.Compile(CompilationTypes.Source);
         }

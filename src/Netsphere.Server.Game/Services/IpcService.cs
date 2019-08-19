@@ -1,3 +1,5 @@
+using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Foundatio.Messaging;
@@ -15,16 +17,18 @@ namespace Netsphere.Server.Game.Services
         private readonly PlayerManager _playerManager;
         private readonly ChannelService _channelService;
         private readonly GameDataService _gameDataService;
+        private readonly ClanManager _clanManager;
         private readonly ServerListOptions _serverListOptions;
         private readonly CancellationTokenSource _cts;
 
         public IpcService(IMessageBus messageBus, PlayerManager playerManager, ChannelService channelService,
-            IOptions<ServerListOptions> serverListOptions, GameDataService gameDataService)
+            IOptions<ServerListOptions> serverListOptions, GameDataService gameDataService, ClanManager clanManager)
         {
             _messageBus = messageBus;
             _playerManager = playerManager;
             _channelService = channelService;
             _gameDataService = gameDataService;
+            _clanManager = clanManager;
             _serverListOptions = serverListOptions.Value;
             _cts = new CancellationTokenSource();
 
@@ -41,6 +45,10 @@ namespace Netsphere.Server.Game.Services
                 OnLevelFromExperience, _cts.Token
             );
             await _messageBus.SubscribeAsync<PlayerPeerIdMessage>(OnPlayerPeerId, _cts.Token);
+            await _messageBus.SubscribeToRequestAsync<ClanMemberListRequest, ClanMemberListResponse>(
+                OnClanMemberList,
+                _cts.Token
+            );
         }
 
         public Task StopAsync(CancellationToken cancellationToken)
@@ -84,6 +92,30 @@ namespace Netsphere.Server.Game.Services
                 plr.PeerId = new LongPeerId(message.AccountId, message.PeerId);
 
             return Task.CompletedTask;
+        }
+
+        private async Task<ClanMemberListResponse> OnClanMemberList(ClanMemberListRequest request)
+        {
+            var clan = _clanManager[request.ClanId];
+
+            var members = Array.Empty<ClanMemberInfo>();
+            if (clan != null)
+            {
+                members = clan.Select(x => new ClanMemberInfo
+                {
+                    AccountId = x.AccountId,
+                    Nickname = x.Name,
+                    Role = x.Role,
+                    LastLoginDate = x.LastLogin,
+                    PresenceState = x.Player == null
+                        ? ClubMemberPresenceState.Offline
+                        : x.Player.Room?.GameRule.StateMachine.GameState == GameState.Playing
+                            ? ClubMemberPresenceState.Playing
+                            : ClubMemberPresenceState.Online
+                }).ToArray();
+            }
+
+            return new ClanMemberListResponse(members);
         }
 
         private void ChannelOnPlayerJoined(object sender, ChannelEventArgs e)

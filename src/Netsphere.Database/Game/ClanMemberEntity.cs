@@ -26,5 +26,8 @@ namespace Netsphere.Database.Game
 
         [Column]
         public byte Role { get; set; }
+
+        [Column]
+        public long LastLoginDate { get; set; }
     }
 }

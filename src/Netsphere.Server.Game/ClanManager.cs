@@ -101,7 +101,8 @@ namespace Netsphere.Server.Game
                     PlayerId = (int)plr.Account.Id,
                     JoinDate = DateTimeOffset.Now.ToUnixTimeSeconds(),
                     State = (byte)ClubMemberState.Joined,
-                    Role = (byte)ClubRole.Master
+                    Role = (byte)ClubRole.Master,
+                    LastLoginDate = DateTimeOffset.Now.ToUnixTimeSeconds()
                 };
 
                 db.Clans.Add(clanEntity);
@@ -200,6 +201,15 @@ namespace Netsphere.Server.Game
             if (member != null)
             {
                 member.Player = plr;
+                member.LastLogin = DateTimeOffset.Now;
+                using (var db = _databaseService.Open<GameContext>())
+                {
+                    db.ClanMembers.Where(x => x.Id == member.Id).Update(x => new ClanMemberEntity
+                    {
+                        LastLoginDate = member.LastLogin.ToUnixTimeSeconds()
+                    });
+                }
+
                 plr.Clan.OnMemberConnected(member);
             }
         }
@@ -317,6 +327,7 @@ namespace Netsphere.Server.Game
         public ulong AccountId { get; }
         public string Name => Player?.Account.Nickname ?? _cachedName;
         public Player Player { get; internal set; }
+        public DateTimeOffset LastLogin { get; internal set; }
 
         public ClanMember(ClanMemberEntity entity, string name)
         {
@@ -325,6 +336,7 @@ namespace Netsphere.Server.Game
             State = (ClubMemberState)entity.State;
             Role = (ClubRole)entity.Role;
             AccountId = (ulong)entity.PlayerId;
+            LastLogin = DateTimeOffset.FromUnixTimeSeconds(entity.LastLoginDate);
             _cachedName = name;
         }
     }

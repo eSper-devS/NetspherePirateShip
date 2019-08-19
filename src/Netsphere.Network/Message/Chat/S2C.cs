@@ -610,6 +610,11 @@ namespace Netsphere.Network.Message.Chat
         {
             Members = Array.Empty<ClubMemberDto>();
         }
+
+        public ClubMemberListAckMessage(ClubMemberDto[] members)
+        {
+            Members = members;
+        }
     }
 
     [BlubContract]
