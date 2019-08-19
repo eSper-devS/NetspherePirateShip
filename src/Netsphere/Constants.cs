@@ -745,4 +745,11 @@ namespace Netsphere
         LevelRequirementNotMet = 7,
         WaitingForApproval = 8,
     }
+
+    public enum ClubLeaveResult : uint
+    {
+        Success = 0,
+        NotInClan = 1,
+        Failed = 2
+    }
 }

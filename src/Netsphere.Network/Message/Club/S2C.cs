@@ -57,7 +57,16 @@ namespace Netsphere.Network.Message.Club
     public class ClubUnjoinAckMessage : IClubMessage
     {
         [BlubMember(0)]
-        public int Unk { get; set; }
+        public ClubLeaveResult Result { get; set; }
+
+        public ClubUnjoinAckMessage()
+        {
+        }
+
+        public ClubUnjoinAckMessage(ClubLeaveResult result)
+        {
+            Result = result;
+        }
     }
 
     [BlubContract]

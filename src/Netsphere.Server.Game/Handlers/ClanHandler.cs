@@ -13,7 +13,7 @@ namespace Netsphere.Server.Game.Handlers
     internal class ClanHandler
         : IHandle<ClubSearchReqMessage>, IHandle<ClubInfoReqMessage>, IHandle<ClubNameCheckReqMessage>,
           IHandle<ClubCreateReqMessage>, IHandle<ClubCloseReqMessage>, IHandle<ClubJoinConditionInfoReqMessage>,
-          IHandle<ClubJoinReqMessage>
+          IHandle<ClubJoinReqMessage>, IHandle<ClubUnjoinReqMessage>
     {
         private readonly ClanManager _clanManager;
 
@@ -168,5 +168,17 @@ namespace Netsphere.Server.Game.Handlers
             return true;
         }
 
+
+        [Firewall(typeof(MustBeLoggedIn))]
+        [Firewall(typeof(MustBeInClan))]
+        public async Task<bool> OnHandle(MessageContext context, ClubUnjoinReqMessage message)
+        {
+            var session = context.GetSession<Session>();
+            var plr = session.Player;
+
+            var result = await plr.Clan.Leave(plr);
+            session.Send(new ClubUnjoinAckMessage(result ? ClubLeaveResult.Success : ClubLeaveResult.Failed));
+            return true;
+        }
     }
 }

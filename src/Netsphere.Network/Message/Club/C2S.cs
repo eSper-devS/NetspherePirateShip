@@ -74,7 +74,7 @@ namespace Netsphere.Network.Message.Club
     public class ClubUnjoinReqMessage : IClubMessage
     {
         [BlubMember(0)]
-        public uint ClanId { get; set; }
+        public uint ClubId { get; set; }
     }
 
     [BlubContract]

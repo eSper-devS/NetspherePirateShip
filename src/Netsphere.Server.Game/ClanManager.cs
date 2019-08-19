@@ -257,6 +257,8 @@ namespace Netsphere.Server.Game
 
         public event EventHandler<ClanMemberEventArgs> MemberConnected;
         public event EventHandler<ClanMemberEventArgs> MemberDisconnected;
+        public event EventHandler<ClanMemberEventArgs> MemberJoined;
+        public event EventHandler<ClanMemberEventArgs> MemberLeft;
 
         internal void OnMemberConnected(ClanMember member)
         {
@@ -266,6 +268,16 @@ namespace Netsphere.Server.Game
         internal void OnMemberDisconnected(ClanMember member)
         {
             MemberDisconnected?.Invoke(this, new ClanMemberEventArgs(member));
+        }
+
+        private void OnMemberJoined(ClanMember member)
+        {
+            MemberJoined?.Invoke(this, new ClanMemberEventArgs(member));
+        }
+
+        private void OnMemberLeft(ClanMember member)
+        {
+            MemberLeft?.Invoke(this, new ClanMemberEventArgs(member));
         }
 
         public ClanManager ClanManager { get; private set; }
@@ -322,6 +334,11 @@ namespace Netsphere.Server.Game
             return _members.GetValueOrDefault(id);
         }
 
+        public ClanMember GetMember(Player plr)
+        {
+            return GetMember(plr.Account.Id);
+        }
+
         public async Task<ClubJoinResult> Join(Player plr,
             string answer1, string answer2, string answer3, string answer4, string answer5)
         {
@@ -357,7 +374,35 @@ namespace Netsphere.Server.Game
             plr.ClanMember.Player = plr;
             plr.SendClubInfo();
 
-            return IsPublic ? ClubJoinResult.Joined : ClubJoinResult.Registered;
+            if (!IsPublic)
+                return ClubJoinResult.Registered;
+
+            OnMemberJoined(plr.ClanMember);
+            return ClubJoinResult.Joined;
+        }
+
+        public async Task<bool> Leave(Player plr)
+        {
+            if (Count == 1)
+                return false;
+
+            var member = GetMember(plr);
+            if (member == null)
+                return false;
+
+            using (var db = _databaseService.Open<GameContext>())
+            {
+                db.ClanMembers.Remove(new ClanMemberEntity
+                {
+                    Id = member.Id
+                });
+                await db.SaveChangesAsync();
+            }
+
+            _members.Remove(member.AccountId);
+            plr.Clan = null;
+            OnMemberLeft(member);
+            return true;
         }
 
         public Task Close()
