@@ -441,7 +441,12 @@ namespace Netsphere.Server.Game
                 await db.ClanMembers.Where(x => x.Id == member.Id).DeleteAsync();
 
             _members.Remove(member.AccountId);
-            member.Player?.SendClubInfo();
+            if (member.Player != null)
+            {
+                member.Player.Clan = null;
+                member.Player.SendClubInfo();
+            }
+
             return ClubApprovalCommandResult.Success;
         }
 
