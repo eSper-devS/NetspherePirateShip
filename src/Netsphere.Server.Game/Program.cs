@@ -113,6 +113,9 @@ namespace Netsphere.Server.Game
                         .Configure<ServerListOptions>(context.Configuration.GetSection(nameof(AppOptions.ServerList)))
                         .Configure<DatabaseOptions>(context.Configuration.GetSection(nameof(AppOptions.Database)))
                         .Configure<GameOptions>(context.Configuration.GetSection(nameof(AppOptions.Game)))
+                        .Configure<ClanOptions>(context.Configuration
+                            .GetSection(nameof(AppOptions.Game))
+                            .GetSection(nameof(AppOptions.Game.ClanOptions)))
                         .Configure<DeathmatchOptions>(context.Configuration
                             .GetSection(nameof(AppOptions.Game))
                             .GetSection(nameof(AppOptions.Game.Deathmatch)))

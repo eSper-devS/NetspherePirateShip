@@ -343,6 +343,11 @@ namespace Netsphere.Server.Game
                 IsGM = Account.SecurityLevel > SecurityLevel.User
             }));
 
+            SendClubInfo();
+        }
+
+        public void SendClubInfo()
+        {
             Session.Send(new ClubMyInfoAckMessage
             {
                 ClanId = Clan?.Id ?? 0,

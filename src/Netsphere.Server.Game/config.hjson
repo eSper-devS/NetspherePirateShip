@@ -49,6 +49,12 @@
       WhitespaceAllowed: false
       AsciiOnly: true
     }
+    ClanOptions:
+    {
+      NameMinLength: 3
+      NameMaxLength: 40
+      DefaultIcon: 1-1-1
+    }
     DurabilityLossPerDeath: 0
     DurabilityLossPerMinute: 0
     Deathmatch:

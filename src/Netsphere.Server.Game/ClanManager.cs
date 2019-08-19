@@ -8,6 +8,8 @@ using System.Threading.Tasks;
 using Logging;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
+using Netsphere.Common.Configuration;
 using Netsphere.Database;
 using Netsphere.Database.Auth;
 using Netsphere.Database.Game;
@@ -18,15 +20,18 @@ namespace Netsphere.Server.Game
     {
         private readonly ILogger _logger;
         private readonly DatabaseService _databaseService;
-        private ImmutableDictionary<uint, Clan> _clans;
+        private readonly IOptionsMonitor<ClanOptions> _clanOptions;
+        private Dictionary<uint, Clan> _clans;
 
         public Clan this[uint id] => GetClan(id);
         public Clan this[string name] => GetClan(name);
 
-        public ClanManager(ILogger<ClanManager> logger, DatabaseService databaseService)
+        public ClanManager(ILogger<ClanManager> logger, DatabaseService databaseService,
+            IOptionsMonitor<ClanOptions> clanOptions)
         {
             _logger = logger;
             _databaseService = databaseService;
+            _clanOptions = clanOptions;
         }
 
         public Clan GetClan(uint id)
@@ -37,6 +42,84 @@ namespace Netsphere.Server.Game
         public Clan GetClan(string name)
         {
             return _clans.Values.FirstOrDefault(x => x.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+        }
+
+        public ClubNameCheckResult CheckClanName(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                return ClubNameCheckResult.CannotBeUsed;
+
+            var clanNameRestrictions = _clanOptions.CurrentValue;
+            if (name.Length < clanNameRestrictions.NameMinLength)
+                return ClubNameCheckResult.TooShort;
+
+            if (name.Length > clanNameRestrictions.NameMaxLength)
+                return ClubNameCheckResult.TooLong;
+
+            if (GetClan(name) != null)
+                return ClubNameCheckResult.NotAvailable;
+
+            return ClubNameCheckResult.Available;
+        }
+
+        public async Task<(Clan, ClanCreateError)> CreateClan(Player plr, string name, string description,
+            ClubArea area, ClubActivity activity,
+            string question1, string question2, string question3, string question4, string question5)
+        {
+            if (plr.Clan != null)
+                return (null, ClanCreateError.AlreadyInClan);
+
+            if (CheckClanName(name) != ClubNameCheckResult.Available)
+                return (null, ClanCreateError.NameAlreadyExists);
+
+            Clan clan;
+            using (var db = _databaseService.Open<GameContext>())
+            {
+                var clanEntity = new ClanEntity
+                {
+                    OwnerId = (int)plr.Account.Id,
+                    CreationDate = DateTimeOffset.Now.ToUnixTimeSeconds(),
+                    Icon = _clanOptions.CurrentValue.DefaultIcon,
+                    Name = name,
+                    Description = description,
+                    Area = (byte)area,
+                    Activity = (byte)activity,
+                    Question1 = question1,
+                    Question2 = question2,
+                    Question3 = question3,
+                    Question4 = question4,
+                    Question5 = question5
+                };
+                var clanMemberEntity = new ClanMemberEntity
+                {
+                    ClanId = clanEntity.Id,
+                    PlayerId = (int)plr.Account.Id,
+                    JoinDate = DateTimeOffset.Now.ToUnixTimeSeconds(),
+                    State = (byte)ClubMemberState.Joined,
+                    Role = (byte)ClubRole.Master
+                };
+
+                db.Clans.Add(clanEntity);
+                clanEntity.Members.Add(clanMemberEntity);
+                await db.SaveChangesAsync();
+
+                clan = new Clan(clanEntity, new[]
+                {
+                    (
+                        clanMemberEntity,
+                        new AccountEntity
+                        {
+                            Id = (int)plr.Account.Id,
+                            Nickname = plr.Account.Nickname
+                        }
+                    )
+                });
+                _clans.Add(clan.Id, clan);
+            }
+
+            plr.Clan = clan;
+            plr.SendClubInfo();
+            return (clan, ClanCreateError.None);
         }
 
         public async Task StartAsync(CancellationToken cancellationToken)
@@ -64,7 +147,7 @@ namespace Netsphere.Server.Game
                     ));
                 }
 
-                _clans = clans.ToImmutableDictionary(x => x.Id, x => x);
+                _clans = clans.ToDictionary(x => x.Id, x => x);
             }
 
             _logger.Information("Loaded {Count} clans", _clans.Count);

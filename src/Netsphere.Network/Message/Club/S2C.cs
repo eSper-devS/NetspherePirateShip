@@ -46,7 +46,16 @@ namespace Netsphere.Network.Message.Club
     public class ClubNameCheckAckMessage : IClubMessage
     {
         [BlubMember(0)]
-        public int Unk { get; set; }
+        public ClubNameCheckResult Result { get; set; }
+
+        public ClubNameCheckAckMessage()
+        {
+        }
+
+        public ClubNameCheckAckMessage(ClubNameCheckResult result)
+        {
+            Result = result;
+        }
     }
 
     [BlubContract]

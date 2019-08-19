@@ -704,4 +704,15 @@ namespace Netsphere
         NameAlreadyExists = 4,
         LevelRequirementNotMet = 6
     }
+
+    public enum ClubNameCheckResult : uint
+    {
+        Available = 0,
+        NotInAClan = 1,
+        NotAvailable = 2,
+        CannotBeUsed = 3,
+        BreaksRules = 4,
+        TooLong = 5,
+        TooShort = 6,
+    }
 }

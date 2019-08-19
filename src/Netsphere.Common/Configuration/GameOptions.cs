@@ -10,6 +10,7 @@
         public int StartCoins1 { get; set; }
         public int StartCoins2 { get; set; }
         public NickRestrictionOptions NickRestrictions { get; set; }
+        public ClanOptions ClanOptions { get; set; }
         public int DurabilityLossPerDeath { get; set; }
         public int DurabilityLossPerMinute { get; set; }
         public DeathmatchOptions Deathmatch { get; set; }

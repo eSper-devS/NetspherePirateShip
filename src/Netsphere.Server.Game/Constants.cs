@@ -106,4 +106,11 @@ namespace Netsphere.Server.Game
         StartHalfTime,
         StartSecondHalf
     }
+
+    public enum ClanCreateError
+    {
+        None,
+        NameAlreadyExists,
+        AlreadyInClan
+    }
 }
