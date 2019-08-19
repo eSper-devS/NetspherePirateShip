@@ -715,4 +715,13 @@ namespace Netsphere
         TooLong = 5,
         TooShort = 6,
     }
+
+    public enum ClubCloseResult : uint
+    {
+        Success = 0,
+        NotInClan = 1,
+        MasterRequired = 2,
+        ClanNotEmpty = 3,
+        Four = 4
+    }
 }

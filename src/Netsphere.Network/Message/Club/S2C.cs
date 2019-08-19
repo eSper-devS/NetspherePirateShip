@@ -25,7 +25,16 @@ namespace Netsphere.Network.Message.Club
     public class ClubCloseAckMessage : IClubMessage
     {
         [BlubMember(0)]
-        public int Unk { get; set; }
+        public ClubCloseResult Result { get; set; }
+
+        public ClubCloseAckMessage()
+        {
+        }
+
+        public ClubCloseAckMessage(ClubCloseResult result)
+        {
+            Result = result;
+        }
     }
 
     [BlubContract]

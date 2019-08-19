@@ -11,7 +11,7 @@ namespace Netsphere.Server.Game.Handlers
 {
     internal class ClanHandler
         : IHandle<ClubSearchReqMessage>, IHandle<ClubInfoReqMessage>, IHandle<ClubNameCheckReqMessage>,
-          IHandle<ClubCreateReqMessage>
+          IHandle<ClubCreateReqMessage>, IHandle<ClubCloseReqMessage>
     {
         private readonly ClanManager _clanManager;
 
@@ -80,22 +80,41 @@ namespace Netsphere.Server.Game.Handlers
             if (_clanManager.CheckClanName(message.Name) != ClubNameCheckResult.Available)
                 session.Send(new ClubCreateAckMessage(ClubCreateResult.Failed));
 
-            var (clan, result) = await _clanManager.CreateClan(
+            var (_, result) = await _clanManager.CreateClan(
                 plr,
                 message.Name, message.Description,
                 message.Area, message.Activity,
                 message.Question1, message.Question2, message.Question3, message.Question4, message.Question5
             );
 
-            if (result == ClanCreateError.None)
+            session.Send(result == ClanCreateError.None
+                ? new ClubCreateAckMessage(ClubCreateResult.Success)
+                : new ClubCreateAckMessage(ClubCreateResult.Failed));
+
+            return true;
+        }
+
+        [Firewall(typeof(MustBeLoggedIn))]
+        [Firewall(typeof(MustBeInClan))]
+        public async Task<bool> OnHandle(MessageContext context, ClubCloseReqMessage message)
+        {
+            var session = context.GetSession<Session>();
+            var plr = session.Player;
+
+            if (plr.ClanMember.Role != ClubRole.Master)
             {
-                session.Send(new ClubCreateAckMessage(ClubCreateResult.Success));
-            }
-            else
-            {
-                session.Send(new ClubCreateAckMessage(ClubCreateResult.Failed));
+                session.Send(new ClubCloseAckMessage(ClubCloseResult.MasterRequired));
+                return true;
             }
 
+            if (plr.Clan.Members.Count() > 1)
+            {
+                session.Send(new ClubCloseAckMessage(ClubCloseResult.ClanNotEmpty));
+                return true;
+            }
+
+            await plr.Clan.Close();
+            session.Send(new ClubCloseAckMessage(ClubCloseResult.Success));
             return true;
         }
     }

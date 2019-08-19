@@ -1,7 +1,6 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -13,6 +12,7 @@ using Netsphere.Common.Configuration;
 using Netsphere.Database;
 using Netsphere.Database.Auth;
 using Netsphere.Database.Game;
+using Z.EntityFramework.Plus;
 
 namespace Netsphere.Server.Game
 {
@@ -21,17 +21,22 @@ namespace Netsphere.Server.Game
         private readonly ILogger _logger;
         private readonly DatabaseService _databaseService;
         private readonly IOptionsMonitor<ClanOptions> _clanOptions;
+        private readonly PlayerManager _playerManager;
         private Dictionary<uint, Clan> _clans;
 
         public Clan this[uint id] => GetClan(id);
         public Clan this[string name] => GetClan(name);
 
         public ClanManager(ILogger<ClanManager> logger, DatabaseService databaseService,
-            IOptionsMonitor<ClanOptions> clanOptions)
+            IOptionsMonitor<ClanOptions> clanOptions, PlayerManager playerManager)
         {
             _logger = logger;
             _databaseService = databaseService;
             _clanOptions = clanOptions;
+            _playerManager = playerManager;
+
+            _playerManager.PlayerConnected += OnPlayerConnected;
+            _playerManager.PlayerDisconnected += OnPlayerDisconnected;
         }
 
         public Clan GetClan(uint id)
@@ -103,14 +108,13 @@ namespace Netsphere.Server.Game
                 clanEntity.Members.Add(clanMemberEntity);
                 await db.SaveChangesAsync();
 
-                clan = new Clan(clanEntity, new[]
+                clan = new Clan(this, clanEntity, new[]
                 {
                     (
                         clanMemberEntity,
                         new AccountEntity
                         {
-                            Id = (int)plr.Account.Id,
-                            Nickname = plr.Account.Nickname
+                            Id = (int)plr.Account.Id, Nickname = plr.Account.Nickname
                         }
                     )
                 });
@@ -118,8 +122,38 @@ namespace Netsphere.Server.Game
             }
 
             plr.Clan = clan;
+            plr.ClanMember.Player = plr;
             plr.SendClubInfo();
             return (clan, ClanCreateError.None);
+        }
+
+        public Task CloseClan(uint clanId)
+        {
+            var clan = GetClan(clanId);
+            return clan == null ? Task.CompletedTask : CloseClan(clan);
+        }
+
+        public async Task CloseClan(Clan clan)
+        {
+            if (clan.Members.Count() > 1)
+                return;
+
+            using (var db = _databaseService.Open<GameContext>())
+            {
+                db.Clans.Remove(new ClanEntity
+                {
+                    Id = (int)clan.Id
+                });
+                await db.SaveChangesAsync();
+            }
+
+            _clans.Remove(clan.Id);
+
+            if (clan.Owner.Player != null)
+            {
+                clan.Owner.Player.Clan = null;
+                clan.Owner.Player.SendClubInfo();
+            }
         }
 
         public async Task StartAsync(CancellationToken cancellationToken)
@@ -142,6 +176,7 @@ namespace Netsphere.Server.Game
                         .ToArrayAsync();
 
                     clans.Add(new Clan(
+                        this,
                         clanEntity,
                         clanEntity.Members.Select(x => (x, accounts.First(acc => acc.Id == x.PlayerId)))
                     ));
@@ -156,6 +191,28 @@ namespace Netsphere.Server.Game
         public Task StopAsync(CancellationToken cancellationToken)
         {
             return Task.CompletedTask;
+        }
+
+        private void OnPlayerConnected(object sender, PlayerEventArgs e)
+        {
+            var plr = e.Player;
+            var member = plr.ClanMember;
+            if (member != null)
+            {
+                member.Player = plr;
+                plr.Clan.OnMemberConnected(member);
+            }
+        }
+
+        private static void OnPlayerDisconnected(object sender, PlayerEventArgs e)
+        {
+            var plr = e.Player;
+            var member = plr.ClanMember;
+            if (member != null)
+            {
+                member.Player = null;
+                plr.Clan.OnMemberDisconnected(member);
+            }
         }
 
         #region IReadOnlyCollection
@@ -179,7 +236,22 @@ namespace Netsphere.Server.Game
         private ulong _ownerId;
 
         public ClanMember this[ulong id] => GetMember(id);
+        public IEnumerable<ClanMember> Members => _members.Values;
 
+        public event EventHandler<ClanMemberEventArgs> MemberConnected;
+        public event EventHandler<ClanMemberEventArgs> MemberDisconnected;
+
+        internal void OnMemberConnected(ClanMember member)
+        {
+            MemberConnected?.Invoke(this, new ClanMemberEventArgs(member));
+        }
+
+        internal void OnMemberDisconnected(ClanMember member)
+        {
+            MemberDisconnected?.Invoke(this, new ClanMemberEventArgs(member));
+        }
+
+        public ClanManager ClanManager { get; }
         public uint Id { get; }
         public DateTimeOffset CreationDate { get; }
         public string Name { get; }
@@ -190,8 +262,9 @@ namespace Netsphere.Server.Game
         public ClubClass Class { get; }
         public ClanMember Owner => GetMember(_ownerId);
 
-        public Clan(ClanEntity entity, IEnumerable<(ClanMemberEntity, AccountEntity)> members)
+        public Clan(ClanManager clanManager, ClanEntity entity, IEnumerable<(ClanMemberEntity, AccountEntity)> members)
         {
+            ClanManager = clanManager;
             Id = (uint)entity.Id;
             CreationDate = DateTimeOffset.FromUnixTimeSeconds(entity.CreationDate);
             Name = entity.Name;
@@ -211,6 +284,11 @@ namespace Netsphere.Server.Game
         public ClanMember GetMember(ulong id)
         {
             return _members.GetValueOrDefault(id);
+        }
+
+        public Task Close()
+        {
+            return ClanManager.CloseClan(this);
         }
 
         #region IReadOnlyCollection
