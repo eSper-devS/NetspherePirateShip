@@ -29,5 +29,20 @@ namespace Netsphere.Database.Game
 
         [Column]
         public long LastLoginDate { get; set; }
+
+        [Column]
+        public string Answer1 { get; set; }
+
+        [Column]
+        public string Answer2 { get; set; }
+
+        [Column]
+        public string Answer3 { get; set; }
+
+        [Column]
+        public string Answer4 { get; set; }
+
+        [Column]
+        public string Answer5 { get; set; }
     }
 }

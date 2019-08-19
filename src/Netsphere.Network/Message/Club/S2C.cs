@@ -41,7 +41,16 @@ namespace Netsphere.Network.Message.Club
     public class ClubJoinAckMessage : IClubMessage
     {
         [BlubMember(0)]
-        public int Unk { get; set; }
+        public ClubJoinResult Result { get; set; }
+
+        public ClubJoinAckMessage()
+        {
+        }
+
+        public ClubJoinAckMessage(ClubJoinResult result)
+        {
+            Result = result;
+        }
     }
 
     [BlubContract]
@@ -253,25 +262,25 @@ namespace Netsphere.Network.Message.Club
     public class ClubJoinConditionInfoAckMessage : IClubMessage
     {
         [BlubMember(0)]
-        public int Unk1 { get; set; }
+        public int JoinType { get; set; }
 
         [BlubMember(1)]
-        public int Unk2 { get; set; }
+        public int RequiredLevel { get; set; }
 
         [BlubMember(2)]
-        public string Unk3 { get; set; }
+        public string Question1 { get; set; }
 
         [BlubMember(3)]
-        public string Unk4 { get; set; }
+        public string Question2 { get; set; }
 
         [BlubMember(4)]
-        public string Unk5 { get; set; }
+        public string Question3 { get; set; }
 
         [BlubMember(5)]
-        public string Unk6 { get; set; }
+        public string Question4 { get; set; }
 
         [BlubMember(6)]
-        public string Unk7 { get; set; }
+        public string Question5 { get; set; }
     }
 
     [BlubContract]

@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using ExpressMapper.Extensions;
+using Netsphere.Network;
 using Netsphere.Network.Data.Club;
 using Netsphere.Network.Message.Club;
 using Netsphere.Server.Game.Rules;
@@ -11,7 +12,8 @@ namespace Netsphere.Server.Game.Handlers
 {
     internal class ClanHandler
         : IHandle<ClubSearchReqMessage>, IHandle<ClubInfoReqMessage>, IHandle<ClubNameCheckReqMessage>,
-          IHandle<ClubCreateReqMessage>, IHandle<ClubCloseReqMessage>
+          IHandle<ClubCreateReqMessage>, IHandle<ClubCloseReqMessage>, IHandle<ClubJoinConditionInfoReqMessage>,
+          IHandle<ClubJoinReqMessage>
     {
         private readonly ClanManager _clanManager;
 
@@ -21,19 +23,17 @@ namespace Netsphere.Server.Game.Handlers
         }
 
         [Firewall(typeof(MustBeLoggedIn))]
-        [Firewall(typeof(MustBeInClan))]
         public async Task<bool> OnHandle(MessageContext context, ClubInfoReqMessage message)
         {
             var session = context.GetSession<Session>();
-            var plr = session.Player;
-            var clan = plr.Clan;
+            var clan = _clanManager[message.ClubId];
 
             session.Send(new ClubInfoAckMessage
             {
                 ClanId = clan.Id,
                 ClanIcon = clan.Icon,
                 ClanName = clan.Name,
-                MemberCount = clan.Count,
+                MemberCount = clan.Count(x => x.State == ClubMemberState.Joined),
                 OwnerName = clan.Owner.Name,
                 CreationDate = clan.CreationDate,
                 Area = clan.Area,
@@ -117,5 +117,56 @@ namespace Netsphere.Server.Game.Handlers
             session.Send(new ClubCloseAckMessage(ClubCloseResult.Success));
             return true;
         }
+
+        [Firewall(typeof(MustBeLoggedIn))]
+        public async Task<bool> OnHandle(MessageContext context, ClubJoinConditionInfoReqMessage message)
+        {
+            var session = context.GetSession<Session>();
+            var clan = _clanManager[message.ClubId];
+
+            if (clan == null)
+            {
+                session.Send(new Network.Message.Game.ServerResultAckMessage(ServerResult.FailedToRequestTask));
+                return true;
+            }
+
+            session.Send(new ClubJoinConditionInfoAckMessage
+            {
+                JoinType = clan.IsPublic ? 1 : 2,
+                RequiredLevel = clan.RequiredLevel,
+                Question1 = clan.Question1,
+                Question2 = clan.Question2,
+                Question3 = clan.Question3,
+                Question4 = clan.Question4,
+                Question5 = clan.Question5
+            });
+            return true;
+        }
+
+        [Firewall(typeof(MustBeLoggedIn))]
+        public async Task<bool> OnHandle(MessageContext context, ClubJoinReqMessage message)
+        {
+            var session = context.GetSession<Session>();
+            var plr = session.Player;
+            var clan = _clanManager[message.ClubId];
+
+            if (clan == null)
+            {
+                session.Send(new ClubJoinAckMessage(ClubJoinResult.Failed));
+                return true;
+            }
+
+            var result = await clan.Join(
+                plr,
+                message.Answer1,
+                message.Answer2,
+                message.Answer3,
+                message.Answer4,
+                message.Answer5
+            );
+            session.Send(new ClubJoinAckMessage(result));
+            return true;
+        }
+
     }
 }

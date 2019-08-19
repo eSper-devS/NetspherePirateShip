@@ -161,6 +161,7 @@ namespace Netsphere.Server.Game
                         .AddTransient<Practice>()
                         .AddTransient<Captain>()
                         .AddSingleton<EquipValidator>()
+                        .AddTransient<Clan>()
                         .AddCommands(typeof(Program).Assembly)
                         .AddService<IdGeneratorService>()
                         .AddHostedServiceEx<ServerlistService>()

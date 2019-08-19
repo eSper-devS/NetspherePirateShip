@@ -65,6 +65,12 @@ namespace Netsphere.Database.Game
         [MaxLength(40)]
         public string Announcement { get; set; }
 
+        [Column]
+        public bool IsPublic { get; set; }
+
+        [Column]
+        public byte RequiredLevel { get; set; }
+
         public List<ClanMemberEntity> Members { get; set; } = new List<ClanMemberEntity>();
     }
 }

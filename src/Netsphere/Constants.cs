@@ -707,7 +707,7 @@ namespace Netsphere
     {
         Success = 0,
         Failed = 1,
-        AlreadyInClan= 2,
+        AlreadyInClan = 2,
         PendingJoinRequest = 3,
         NameAlreadyExists = 4,
         LevelRequirementNotMet = 6
@@ -731,5 +731,18 @@ namespace Netsphere
         MasterRequired = 2,
         ClanNotEmpty = 3,
         Four = 4
+    }
+
+    public enum ClubJoinResult : uint
+    {
+        Registered = 0,
+        Joined = 1,
+        NotInClan = 2,
+        Failed = 3,
+        AlreadyRegistered = 4,
+        CantRegister = 5,
+        ClubFull = 6,
+        LevelRequirementNotMet = 7,
+        WaitingForApproval = 8,
     }
 }

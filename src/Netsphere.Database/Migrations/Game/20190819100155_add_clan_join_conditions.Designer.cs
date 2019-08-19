@@ -2,15 +2,17 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Netsphere.Database;
 
 namespace Netsphere.Database.Migrations.Game
 {
     [DbContext(typeof(GameContext))]
-    partial class GameContextModelSnapshot : ModelSnapshot
+    [Migration("20190819100155_add_clan_join_conditions")]
+    partial class add_clan_join_conditions
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -107,16 +109,6 @@ namespace Netsphere.Database.Migrations.Game
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd();
-
-                    b.Property<string>("Answer1");
-
-                    b.Property<string>("Answer2");
-
-                    b.Property<string>("Answer3");
-
-                    b.Property<string>("Answer4");
-
-                    b.Property<string>("Answer5");
 
                     b.Property<int>("ClanId");
 

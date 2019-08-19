@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Logging;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Netsphere.Common.Configuration;
@@ -22,18 +23,20 @@ namespace Netsphere.Server.Game
         private readonly DatabaseService _databaseService;
         private readonly IOptionsMonitor<ClanOptions> _clanOptions;
         private readonly PlayerManager _playerManager;
+        private readonly IServiceProvider _serviceProvider;
         private Dictionary<uint, Clan> _clans;
 
         public Clan this[uint id] => GetClan(id);
         public Clan this[string name] => GetClan(name);
 
         public ClanManager(ILogger<ClanManager> logger, DatabaseService databaseService,
-            IOptionsMonitor<ClanOptions> clanOptions, PlayerManager playerManager)
+            IOptionsMonitor<ClanOptions> clanOptions, PlayerManager playerManager, IServiceProvider serviceProvider)
         {
             _logger = logger;
             _databaseService = databaseService;
             _clanOptions = clanOptions;
             _playerManager = playerManager;
+            _serviceProvider = serviceProvider;
 
             _playerManager.PlayerConnected += OnPlayerConnected;
             _playerManager.PlayerDisconnected += OnPlayerDisconnected;
@@ -109,7 +112,8 @@ namespace Netsphere.Server.Game
                 clanEntity.Members.Add(clanMemberEntity);
                 await db.SaveChangesAsync();
 
-                clan = new Clan(this, clanEntity, new[]
+                clan = _serviceProvider.GetRequiredService<Clan>();
+                clan.Initialize(this, clanEntity, new[]
                 {
                     (
                         clanMemberEntity,
@@ -176,11 +180,13 @@ namespace Netsphere.Server.Game
                         .Where(x => memberIds.Contains(x.Id))
                         .ToArrayAsync();
 
-                    clans.Add(new Clan(
+                    var clan = _serviceProvider.GetRequiredService<Clan>();
+                    clan.Initialize(
                         this,
                         clanEntity,
                         clanEntity.Members.Select(x => (x, accounts.First(acc => acc.Id == x.PlayerId)))
-                    ));
+                    );
+                    clans.Add(clan);
                 }
 
                 _clans = clans.ToDictionary(x => x.Id, x => x);
@@ -242,6 +248,7 @@ namespace Netsphere.Server.Game
 
     public class Clan : IReadOnlyCollection<ClanMember>
     {
+        private readonly DatabaseService _databaseService;
         private readonly Dictionary<ulong, ClanMember> _members;
         private ulong _ownerId;
 
@@ -261,18 +268,32 @@ namespace Netsphere.Server.Game
             MemberDisconnected?.Invoke(this, new ClanMemberEventArgs(member));
         }
 
-        public ClanManager ClanManager { get; }
-        public uint Id { get; }
-        public DateTimeOffset CreationDate { get; }
-        public string Name { get; }
-        public string Icon { get; }
-        public string Description { get; }
-        public ClubArea Area { get; }
-        public ClubActivity Activity { get; }
-        public ClubClass Class { get; }
+        public ClanManager ClanManager { get; private set; }
+        public uint Id { get; private set; }
+        public DateTimeOffset CreationDate { get; private set; }
+        public string Name { get; private set; }
+        public string Icon { get; private set; }
+        public string Description { get; private set; }
+        public ClubArea Area { get; private set; }
+        public ClubActivity Activity { get; private set; }
+        public ClubClass Class { get; private set; }
+        public bool IsPublic { get; internal set; }
+        public byte RequiredLevel { get; internal set; }
+        public string Question1 { get; internal set; }
+        public string Question2 { get; internal set; }
+        public string Question3 { get; internal set; }
+        public string Question4 { get; internal set; }
+        public string Question5 { get; internal set; }
         public ClanMember Owner => GetMember(_ownerId);
 
-        public Clan(ClanManager clanManager, ClanEntity entity, IEnumerable<(ClanMemberEntity, AccountEntity)> members)
+        public Clan(DatabaseService databaseService)
+        {
+            _databaseService = databaseService;
+            _members = new Dictionary<ulong, ClanMember>();
+        }
+
+        internal void Initialize(ClanManager clanManager, ClanEntity entity,
+            IEnumerable<(ClanMemberEntity, AccountEntity)> members)
         {
             ClanManager = clanManager;
             Id = (uint)entity.Id;
@@ -283,8 +304,13 @@ namespace Netsphere.Server.Game
             Area = (ClubArea)entity.Area;
             Activity = (ClubActivity)entity.Activity;
             Class = (ClubClass)entity.Class;
-
-            _members = new Dictionary<ulong, ClanMember>();
+            IsPublic = entity.IsPublic;
+            RequiredLevel = entity.RequiredLevel;
+            Question1 = entity.Question1;
+            Question2 = entity.Question2;
+            Question3 = entity.Question3;
+            Question4 = entity.Question4;
+            Question5 = entity.Question5;
             _ownerId = (ulong)entity.OwnerId;
 
             foreach (var (memberEntity, account) in members)
@@ -294,6 +320,44 @@ namespace Netsphere.Server.Game
         public ClanMember GetMember(ulong id)
         {
             return _members.GetValueOrDefault(id);
+        }
+
+        public async Task<ClubJoinResult> Join(Player plr,
+            string answer1, string answer2, string answer3, string answer4, string answer5)
+        {
+            if (plr.Clan != null)
+                return ClubJoinResult.AlreadyRegistered;
+
+            if (RequiredLevel > plr.Level)
+                return ClubJoinResult.LevelRequirementNotMet;
+
+            var memberEntity = new ClanMemberEntity
+            {
+                ClanId = (int)Id,
+                PlayerId = (int)plr.Account.Id,
+                JoinDate = DateTimeOffset.Now.ToUnixTimeSeconds(),
+                State = (byte)(IsPublic ? ClubMemberState.Joined : ClubMemberState.JoinRequested),
+                Role = (byte)ClubRole.Normal,
+                LastLoginDate = DateTimeOffset.Now.ToUnixTimeSeconds(),
+                Answer1 = answer1,
+                Answer2 = answer2,
+                Answer3 = answer3,
+                Answer4 = answer4,
+                Answer5 = answer5
+            };
+
+            using (var db = _databaseService.Open<GameContext>())
+            {
+                db.ClanMembers.Add(memberEntity);
+                await db.SaveChangesAsync();
+            }
+
+            _members.Add(plr.Account.Id, new ClanMember(memberEntity, plr.Account.Nickname));
+            plr.Clan = this;
+            plr.ClanMember.Player = plr;
+            plr.SendClubInfo();
+
+            return IsPublic ? ClubJoinResult.Joined : ClubJoinResult.Registered;
         }
 
         public Task Close()
@@ -328,6 +392,11 @@ namespace Netsphere.Server.Game
         public string Name => Player?.Account.Nickname ?? _cachedName;
         public Player Player { get; internal set; }
         public DateTimeOffset LastLogin { get; internal set; }
+        public string Answer1 { get; }
+        public string Answer2 { get; }
+        public string Answer3 { get; }
+        public string Answer4 { get; }
+        public string Answer5 { get; }
 
         public ClanMember(ClanMemberEntity entity, string name)
         {
@@ -337,6 +406,11 @@ namespace Netsphere.Server.Game
             Role = (ClubRole)entity.Role;
             AccountId = (ulong)entity.PlayerId;
             LastLogin = DateTimeOffset.FromUnixTimeSeconds(entity.LastLoginDate);
+            Answer1 = entity.Answer1;
+            Answer2 = entity.Answer2;
+            Answer3 = entity.Answer3;
+            Answer4 = entity.Answer4;
+            Answer5 = entity.Answer5;
             _cachedName = name;
         }
     }

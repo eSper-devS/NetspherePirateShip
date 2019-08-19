@@ -101,7 +101,7 @@ namespace Netsphere.Server.Game.Services
             var members = Array.Empty<ClanMemberInfo>();
             if (clan != null)
             {
-                members = clan.Select(x => new ClanMemberInfo
+                members = clan.Where(x => x.State == ClubMemberState.Joined).Select(x => new ClanMemberInfo
                 {
                     AccountId = x.AccountId,
                     Nickname = x.Name,

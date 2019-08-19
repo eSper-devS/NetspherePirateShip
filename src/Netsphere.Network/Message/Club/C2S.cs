@@ -52,22 +52,22 @@ namespace Netsphere.Network.Message.Club
         public uint ClubId { get; set; }
 
         [BlubMember(1)]
-        public string Unk2 { get; set; }
+        public string ClubName { get; set; }
 
         [BlubMember(2)]
-        public string Unk3 { get; set; }
+        public string Answer1 { get; set; }
 
         [BlubMember(3)]
-        public string Unk4 { get; set; }
+        public string Answer2 { get; set; }
 
         [BlubMember(4)]
-        public string Unk5 { get; set; }
+        public string Answer3 { get; set; }
 
         [BlubMember(5)]
-        public string Unk6 { get; set; }
+        public string Answer4 { get; set; }
 
         [BlubMember(6)]
-        public string Unk7 { get; set; }
+        public string Answer5 { get; set; }
     }
 
     [BlubContract]
