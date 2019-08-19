@@ -752,4 +752,20 @@ namespace Netsphere
         NotInClan = 1,
         Failed = 2
     }
+
+    public enum ClubApprovalCommand : uint
+    {
+        Accept = 1,
+        Decline = 2
+    }
+
+    public enum ClubApprovalCommandResult : uint
+    {
+        Success = 0,
+        NotInClan = 1,
+        MemberNotFound = 2,
+        MemberNotFound2 = 3,
+        PermissionDenied = 4,
+        NoMemberSelected = 5
+    }
 }

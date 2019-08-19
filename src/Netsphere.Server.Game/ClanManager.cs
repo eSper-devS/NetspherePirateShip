@@ -405,6 +405,46 @@ namespace Netsphere.Server.Game
             return true;
         }
 
+        public async Task<ClubApprovalCommandResult> Approve(ulong accountId)
+        {
+            var member = GetMember(accountId);
+            if (member == null)
+                return ClubApprovalCommandResult.MemberNotFound;
+
+            if (member.State != ClubMemberState.JoinRequested)
+                return ClubApprovalCommandResult.MemberNotFound;
+
+            member.State = ClubMemberState.Joined;
+            using (var db = _databaseService.Open<GameContext>())
+            {
+                await db.ClanMembers.Where(x => x.Id == member.Id).UpdateAsync(x => new ClanMemberEntity
+                {
+                    State = (byte)member.State
+                });
+            }
+
+            member.Player?.SendClubInfo();
+            OnMemberJoined(member);
+            return ClubApprovalCommandResult.Success;
+        }
+
+        public async Task<ClubApprovalCommandResult> Decline(ulong accountId)
+        {
+            var member = GetMember(accountId);
+            if (member == null)
+                return ClubApprovalCommandResult.MemberNotFound;
+
+            if (member.State != ClubMemberState.JoinRequested)
+                return ClubApprovalCommandResult.MemberNotFound;
+
+            using (var db = _databaseService.Open<GameContext>())
+                await db.ClanMembers.Where(x => x.Id == member.Id).DeleteAsync();
+
+            _members.Remove(member.AccountId);
+            member.Player?.SendClubInfo();
+            return ClubApprovalCommandResult.Success;
+        }
+
         public Task Close()
         {
             return ClanManager.CloseClan(this);

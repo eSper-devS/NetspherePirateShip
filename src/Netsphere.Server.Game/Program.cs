@@ -298,10 +298,12 @@ namespace Netsphere.Server.Game
                     return settings;
                 });
 
-
             Mapper.Register<Clan, ClubSearchResultDto>()
                 .Function(dest => dest.OwnerName, src => src.Owner.Name)
                 .Function(dest => dest.MemberCount, src => src.Count);
+
+            Mapper.Register<ClanMember, JoinWaiterInfoDto>()
+                .Member(dest => dest.Nickname, src => src.Name);
 
             Mapper.Compile(CompilationTypes.Source);
         }

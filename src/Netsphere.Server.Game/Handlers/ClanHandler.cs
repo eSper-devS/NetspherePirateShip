@@ -13,7 +13,8 @@ namespace Netsphere.Server.Game.Handlers
     internal class ClanHandler
         : IHandle<ClubSearchReqMessage>, IHandle<ClubInfoReqMessage>, IHandle<ClubNameCheckReqMessage>,
           IHandle<ClubCreateReqMessage>, IHandle<ClubCloseReqMessage>, IHandle<ClubJoinConditionInfoReqMessage>,
-          IHandle<ClubJoinReqMessage>, IHandle<ClubUnjoinReqMessage>
+          IHandle<ClubJoinReqMessage>, IHandle<ClubUnjoinReqMessage>, IHandle<ClubJoinWaiterInfoReqMessage>,
+          IHandle<ClubAdminJoinCommandReqMessage>
     {
         private readonly ClanManager _clanManager;
 
@@ -178,6 +179,63 @@ namespace Netsphere.Server.Game.Handlers
 
             var result = await plr.Clan.Leave(plr);
             session.Send(new ClubUnjoinAckMessage(result ? ClubLeaveResult.Success : ClubLeaveResult.Failed));
+            return true;
+        }
+
+        [Firewall(typeof(MustBeLoggedIn))]
+        [Firewall(typeof(MustBeInClan))]
+        public async Task<bool> OnHandle(MessageContext context, ClubJoinWaiterInfoReqMessage message)
+        {
+            var session = context.GetSession<Session>();
+            var clan = _clanManager[message.ClubId];
+
+            session.Send(new ClubJoinWaiterInfoAckMessage
+            {
+                Waiters = clan
+                    .Where(x => x.State == ClubMemberState.JoinRequested)
+                    .Select(x => x.Map<ClanMember, JoinWaiterInfoDto>())
+                    .ToArray()
+            });
+            return true;
+        }
+
+        [Firewall(typeof(MustBeLoggedIn))]
+        [Firewall(typeof(MustBeInClan))]
+        public async Task<bool> OnHandle(MessageContext context, ClubAdminJoinCommandReqMessage message)
+        {
+            var session = context.GetSession<Session>();
+            var plr = session.Player;
+            var clan = plr.Clan;
+
+            if (plr.ClanMember.Role > ClubRole.Staff)
+            {
+                session.Send(new ClubAdminJoinCommandAckMessage(ClubApprovalCommandResult.PermissionDenied));
+                return true;
+            }
+
+            if (message.AccountIds.Length > 1)
+            {
+                session.Send(new ClubAdminJoinCommandAckMessage(ClubApprovalCommandResult.MemberNotFound));
+                return true;
+            }
+
+            ClubApprovalCommandResult result;
+            switch (message.Command)
+            {
+                case ClubApprovalCommand.Accept:
+                    result = await clan.Approve(message.AccountIds[0]);
+                    break;
+
+                case ClubApprovalCommand.Decline:
+                    result = await clan.Decline(message.AccountIds[0]);
+                    break;
+
+                default:
+                    result = ClubApprovalCommandResult.MemberNotFound;
+                    break;
+            }
+
+            session.Send(new ClubAdminJoinCommandAckMessage(result));
             return true;
         }
     }

@@ -1,4 +1,6 @@
+using System;
 using BlubLib.Serialization;
+using Netsphere.Network.Serializers;
 
 namespace Netsphere.Network.Data.Club
 {
@@ -9,57 +11,58 @@ namespace Netsphere.Network.Data.Club
         public ulong AccountId { get; set; }
 
         [BlubMember(1)]
-        public string Unk1 { get; set; }
+        public string Nickname { get; set; }
 
         [BlubMember(2)]
-        public int Unk2 { get; set; }
+        public int Unk1 { get; set; }
 
         [BlubMember(3)]
-        public int Unk3 { get; set; }
+        public int Unk2 { get; set; }
 
         [BlubMember(4)]
-        public string Unk4 { get; set; }
+        [BlubSerializer(typeof(ClubCreationDateSerializer))]
+        public DateTimeOffset JoinDate { get; set; }
 
         [BlubMember(5)]
-        public string Unk5 { get; set; }
+        public string Question1 { get; set; }
 
         [BlubMember(6)]
-        public string Unk6 { get; set; }
+        public string Question2 { get; set; }
 
         [BlubMember(7)]
-        public string Unk7 { get; set; }
+        public string Question3 { get; set; }
 
         [BlubMember(8)]
-        public string Unk8 { get; set; }
+        public string Question4 { get; set; }
 
         [BlubMember(9)]
-        public string Unk9 { get; set; }
+        public string Question5 { get; set; }
 
         [BlubMember(10)]
-        public string Unk10 { get; set; }
+        public string Answer1 { get; set; }
 
         [BlubMember(11)]
-        public string Unk11 { get; set; }
+        public string Answer2 { get; set; }
 
         [BlubMember(12)]
-        public string Unk12 { get; set; }
+        public string Answer3 { get; set; }
 
         [BlubMember(13)]
-        public string Unk13 { get; set; }
+        public string Answer4 { get; set; }
 
         [BlubMember(14)]
-        public string Unk14 { get; set; }
+        public string Answer5 { get; set; }
 
         [BlubMember(15)]
-        public int Unk15 { get; set; }
+        public int Unk3 { get; set; }
 
         [BlubMember(16)]
-        public int Unk16 { get; set; }
+        public int Unk4 { get; set; }
 
         [BlubMember(17)]
-        public int Unk17 { get; set; }
+        public int Unk5 { get; set; }
 
         [BlubMember(18)]
-        public int Unk18 { get; set; }
+        public int Unk6 { get; set; }
     }
 }
