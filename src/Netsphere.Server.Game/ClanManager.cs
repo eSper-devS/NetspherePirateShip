@@ -170,6 +170,7 @@ namespace Netsphere.Server.Game
             {
                 var clanEntities = await db.Clans
                     .Include(x => x.Members)
+                    .Include(x => x.Bans)
                     .ToArrayAsync();
 
                 var clans = new List<Clan>();
@@ -250,6 +251,7 @@ namespace Netsphere.Server.Game
     {
         private readonly DatabaseService _databaseService;
         private readonly Dictionary<ulong, ClanMember> _members;
+        private readonly HashSet<ulong> _bans;
         private ulong _ownerId;
 
         public ClanMember this[ulong id] => GetMember(id);
@@ -302,6 +304,7 @@ namespace Netsphere.Server.Game
         {
             _databaseService = databaseService;
             _members = new Dictionary<ulong, ClanMember>();
+            _bans = new HashSet<ulong>();
         }
 
         internal void Initialize(ClanManager clanManager, ClanEntity entity,
@@ -325,6 +328,9 @@ namespace Netsphere.Server.Game
             Question5 = entity.Question5;
             _ownerId = (ulong)entity.OwnerId;
 
+            foreach (var ban in entity.Bans.Select(x => (ulong)x.PlayerId))
+                _bans.Add(ban);
+
             foreach (var (memberEntity, account) in members)
                 _members[(ulong)memberEntity.PlayerId] = new ClanMember(memberEntity, account.Nickname);
         }
@@ -347,6 +353,9 @@ namespace Netsphere.Server.Game
 
             if (RequiredLevel > plr.Level)
                 return ClubJoinResult.LevelRequirementNotMet;
+
+            if (_bans.Contains(plr.Account.Id))
+                return ClubJoinResult.CantRegister;
 
             var memberEntity = new ClanMemberEntity
             {
@@ -405,14 +414,14 @@ namespace Netsphere.Server.Game
             return true;
         }
 
-        public async Task<ClubApprovalCommandResult> Approve(ulong accountId)
+        public async Task<ClubCommandResult> Approve(ulong accountId)
         {
             var member = GetMember(accountId);
             if (member == null)
-                return ClubApprovalCommandResult.MemberNotFound;
+                return ClubCommandResult.MemberNotFound;
 
             if (member.State != ClubMemberState.JoinRequested)
-                return ClubApprovalCommandResult.MemberNotFound;
+                return ClubCommandResult.MemberNotFound;
 
             member.State = ClubMemberState.Joined;
             using (var db = _databaseService.Open<GameContext>())
@@ -425,20 +434,26 @@ namespace Netsphere.Server.Game
 
             member.Player?.SendClubInfo();
             OnMemberJoined(member);
-            return ClubApprovalCommandResult.Success;
+            return ClubCommandResult.Success;
         }
 
-        public async Task<ClubApprovalCommandResult> Decline(ulong accountId)
+        public async Task<ClubCommandResult> Decline(ulong accountId)
         {
             var member = GetMember(accountId);
             if (member == null)
-                return ClubApprovalCommandResult.MemberNotFound;
+                return ClubCommandResult.MemberNotFound;
 
             if (member.State != ClubMemberState.JoinRequested)
-                return ClubApprovalCommandResult.MemberNotFound;
+                return ClubCommandResult.MemberNotFound;
 
             using (var db = _databaseService.Open<GameContext>())
-                await db.ClanMembers.Where(x => x.Id == member.Id).DeleteAsync();
+            {
+                db.ClanMembers.Remove(new ClanMemberEntity
+                {
+                    Id = member.Id
+                });
+                await db.SaveChangesAsync();
+            }
 
             _members.Remove(member.AccountId);
             if (member.Player != null)
@@ -447,7 +462,71 @@ namespace Netsphere.Server.Game
                 member.Player.SendClubInfo();
             }
 
-            return ClubApprovalCommandResult.Success;
+            return ClubCommandResult.Success;
+        }
+
+        public async Task<ClubCommandResult> Kick(ulong accountId)
+        {
+            var member = GetMember(accountId);
+            if (member == null)
+                return ClubCommandResult.MemberNotFound;
+
+            if (member.State != ClubMemberState.Joined)
+                return ClubCommandResult.MemberNotFound;
+
+            using (var db = _databaseService.Open<GameContext>())
+            {
+                db.ClanMembers.Remove(new ClanMemberEntity
+                {
+                    Id = member.Id
+                });
+                await db.SaveChangesAsync();
+            }
+
+            _members.Remove(member.AccountId);
+            if (member.Player != null)
+            {
+                member.Player.Clan = null;
+                member.Player.SendClubInfo();
+            }
+
+            return ClubCommandResult.Success;
+        }
+
+        public async Task<ClubCommandResult> Ban(Player admin, ulong accountId)
+        {
+            var member = GetMember(accountId);
+            if (member == null)
+                return ClubCommandResult.MemberNotFound;
+
+            if (member.State != ClubMemberState.Joined)
+                return ClubCommandResult.MemberNotFound;
+
+            using (var db = _databaseService.Open<GameContext>())
+            {
+                db.ClanMembers.Remove(new ClanMemberEntity
+                {
+                    Id = member.Id
+                });
+                db.ClanBans.Add(new ClanBanEntity
+                {
+                    ClanId = (int)Id,
+                    PlayerId = (int)accountId,
+                    BannedById = (int)admin.Account.Id,
+                    Date = DateTimeOffset.Now.ToUnixTimeSeconds()
+                });
+                await db.SaveChangesAsync();
+            }
+
+            _bans.Add(accountId);
+            _members.Remove(member.AccountId);
+            if (member.Player != null)
+            {
+                member.Player.Clan = null;
+                member.Player.SendClubInfo();
+            }
+
+            return ClubCommandResult.Success;
         }
 
         public Task Close()

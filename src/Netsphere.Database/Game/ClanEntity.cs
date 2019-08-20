@@ -72,5 +72,6 @@ namespace Netsphere.Database.Game
         public byte RequiredLevel { get; set; }
 
         public List<ClanMemberEntity> Members { get; set; } = new List<ClanMemberEntity>();
+        public List<ClanBanEntity> Bans { get; set; } = new List<ClanBanEntity>();
     }
 }

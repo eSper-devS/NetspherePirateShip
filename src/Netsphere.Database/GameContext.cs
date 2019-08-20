@@ -24,6 +24,7 @@ namespace Netsphere.Database
         public DbSet<ChannelEntity> Channels { get; set; }
         public DbSet<ClanEntity> Clans { get; set; }
         public DbSet<ClanMemberEntity> ClanMembers { get; set; }
+        public DbSet<ClanBanEntity> ClanBans { get; set; }
 
         public GameContext(DbContextOptions<GameContext> options)
             : base(options)
@@ -72,6 +73,13 @@ namespace Netsphere.Database
             modelBuilder.Entity<ClanEntity>()
                 .HasMany(x => x.Members)
                 .WithOne(x => x.Clan);
+
+            modelBuilder.Entity<ClanEntity>()
+                .HasMany(x => x.Bans)
+                .WithOne(x => x.Clan);
+
+            modelBuilder.Entity<ClanBanEntity>()
+                .HasOne(x => x.BannedBy);
         }
     }
 }

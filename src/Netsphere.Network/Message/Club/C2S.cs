@@ -102,7 +102,7 @@ namespace Netsphere.Network.Message.Club
     public class ClubAdminJoinCommandReqMessage : IClubMessage
     {
         [BlubMember(0)]
-        public ClubApprovalCommand Command { get; set; }
+        public ClubCommand Command { get; set; }
 
         [BlubMember(1)]
         [BlubSerializer(typeof(ArrayWithIntPrefixSerializer))]

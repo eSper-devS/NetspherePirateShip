@@ -753,13 +753,15 @@ namespace Netsphere
         Failed = 2
     }
 
-    public enum ClubApprovalCommand : uint
+    public enum ClubCommand : uint
     {
         Accept = 1,
-        Decline = 2
+        Decline = 2,
+        Kick = 3,
+        Ban = 4
     }
 
-    public enum ClubApprovalCommandResult : uint
+    public enum ClubCommandResult : uint
     {
         Success = 0,
         NotInClan = 1,

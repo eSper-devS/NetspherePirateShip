@@ -218,30 +218,52 @@ namespace Netsphere.Server.Game.Handlers
 
             if (plr.ClanMember.Role > ClubRole.Staff)
             {
-                session.Send(new ClubAdminJoinCommandAckMessage(ClubApprovalCommandResult.PermissionDenied));
+                session.Send(new ClubAdminJoinCommandAckMessage(ClubCommandResult.PermissionDenied));
                 return true;
             }
 
             if (message.AccountIds.Length > 1)
             {
-                session.Send(new ClubAdminJoinCommandAckMessage(ClubApprovalCommandResult.MemberNotFound));
+                session.Send(new ClubAdminJoinCommandAckMessage(ClubCommandResult.MemberNotFound));
                 return true;
             }
 
-            ClubApprovalCommandResult result;
+            ClubCommandResult result;
             switch (message.Command)
             {
-                case ClubApprovalCommand.Accept:
+                case ClubCommand.Accept:
                     result = await clan.Approve(message.AccountIds[0]);
                     break;
 
-                case ClubApprovalCommand.Decline:
+                case ClubCommand.Decline:
                     result = await clan.Decline(message.AccountIds[0]);
                     break;
 
+                case ClubCommand.Kick:
+                {
+                    var targetMember = clan.GetMember(message.AccountIds[0]);
+                    if (targetMember.Role <= plr.ClanMember.Role)
+                        result = ClubCommandResult.PermissionDenied;
+                    else
+                        result = await clan.Kick(message.AccountIds[0]);
+
+                    break;
+                }
+
+                case ClubCommand.Ban:
+                {
+                    var targetMember = clan.GetMember(message.AccountIds[0]);
+                    if (targetMember.Role <= plr.ClanMember.Role)
+                        result = ClubCommandResult.PermissionDenied;
+                    else
+                        result = await clan.Ban(plr, message.AccountIds[0]);
+
+                    break;
+                }
+
                 default:
                     plr.AddContextToLogger(_logger).Warning("Unknown join command={command}", message.Command);
-                    result = ClubApprovalCommandResult.MemberNotFound;
+                    result = ClubCommandResult.MemberNotFound;
                     break;
             }
 

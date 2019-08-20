@@ -103,7 +103,7 @@ namespace Netsphere.Network.Message.Club
     public class ClubAdminJoinCommandAckMessage : IClubMessage
     {
         [BlubMember(0)]
-        public ClubApprovalCommandResult Result { get; set; }
+        public ClubCommandResult Result { get; set; }
 
         [BlubMember(1)]
         [BlubSerializer(typeof(ArrayWithIntPrefixSerializer))]
@@ -114,13 +114,13 @@ namespace Netsphere.Network.Message.Club
             AccountIds = Array.Empty<ulong>();
         }
 
-        public ClubAdminJoinCommandAckMessage(ClubApprovalCommandResult result)
+        public ClubAdminJoinCommandAckMessage(ClubCommandResult result)
             : this()
         {
             Result = result;
         }
 
-        public ClubAdminJoinCommandAckMessage(ClubApprovalCommandResult result, ulong[] accountIds)
+        public ClubAdminJoinCommandAckMessage(ClubCommandResult result, ulong[] accountIds)
         {
             Result = result;
             AccountIds = accountIds;
