@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using ExpressMapper.Extensions;
+using Logging;
 using Netsphere.Network;
 using Netsphere.Network.Data.Club;
 using Netsphere.Network.Message.Club;
@@ -14,12 +15,14 @@ namespace Netsphere.Server.Game.Handlers
         : IHandle<ClubSearchReqMessage>, IHandle<ClubInfoReqMessage>, IHandle<ClubNameCheckReqMessage>,
           IHandle<ClubCreateReqMessage>, IHandle<ClubCloseReqMessage>, IHandle<ClubJoinConditionInfoReqMessage>,
           IHandle<ClubJoinReqMessage>, IHandle<ClubUnjoinReqMessage>, IHandle<ClubJoinWaiterInfoReqMessage>,
-          IHandle<ClubAdminJoinCommandReqMessage>
+          IHandle<ClubAdminJoinCommandReqMessage>, IHandle<ClubNewJoinMemberInfoReqMessage>
     {
+        private readonly ILogger _logger;
         private readonly ClanManager _clanManager;
 
-        public ClanHandler(ClanManager clanManager)
+        public ClanHandler(ILogger<ClanHandler> logger, ClanManager clanManager)
         {
+            _logger = logger;
             _clanManager = clanManager;
         }
 
@@ -169,7 +172,6 @@ namespace Netsphere.Server.Game.Handlers
             return true;
         }
 
-
         [Firewall(typeof(MustBeLoggedIn))]
         [Firewall(typeof(MustBeInClan))]
         public async Task<bool> OnHandle(MessageContext context, ClubUnjoinReqMessage message)
@@ -187,7 +189,14 @@ namespace Netsphere.Server.Game.Handlers
         public async Task<bool> OnHandle(MessageContext context, ClubJoinWaiterInfoReqMessage message)
         {
             var session = context.GetSession<Session>();
+            var plr = session.Player;
             var clan = _clanManager[message.ClubId];
+
+            if (plr.ClanMember.Role > ClubRole.Staff)
+            {
+                session.Send(new Network.Message.Game.ServerResultAckMessage(ServerResult.FailedToRequestTask));
+                return true;
+            }
 
             session.Send(new ClubJoinWaiterInfoAckMessage
             {
@@ -231,11 +240,35 @@ namespace Netsphere.Server.Game.Handlers
                     break;
 
                 default:
+                    plr.AddContextToLogger(_logger).Warning("Unknown join command={command}", message.Command);
                     result = ClubApprovalCommandResult.MemberNotFound;
                     break;
             }
 
             session.Send(new ClubAdminJoinCommandAckMessage(result));
+            return true;
+        }
+
+        [Firewall(typeof(MustBeLoggedIn))]
+        [Firewall(typeof(MustBeInClan))]
+        public async Task<bool> OnHandle(MessageContext context, ClubNewJoinMemberInfoReqMessage message)
+        {
+            var session = context.GetSession<Session>();
+            var plr = session.Player;
+            var clan = plr.Clan;
+
+            if (plr.ClanMember.Role > ClubRole.Staff)
+            {
+                session.Send(new Network.Message.Game.ServerResultAckMessage(ServerResult.FailedToRequestTask));
+                return true;
+            }
+
+            var newMembers = clan
+                .Where(x => x.State == ClubMemberState.Joined)
+                .OrderByDescending(x => x.JoinDate)
+                .Select(x => x.Map<ClanMember, NewMemberInfoDto>())
+                .ToArray();
+            session.Send(new ClubNewJoinMemberInfoAckMessage(newMembers));
             return true;
         }
     }

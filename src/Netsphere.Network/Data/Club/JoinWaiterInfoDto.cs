@@ -11,7 +11,7 @@ namespace Netsphere.Network.Data.Club
         public ulong AccountId { get; set; }
 
         [BlubMember(1)]
-        public string Nickname { get; set; }
+        public string Name { get; set; }
 
         [BlubMember(2)]
         public int Unk1 { get; set; }

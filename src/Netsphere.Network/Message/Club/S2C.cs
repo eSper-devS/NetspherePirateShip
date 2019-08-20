@@ -281,7 +281,17 @@ namespace Netsphere.Network.Message.Club
     {
         [BlubMember(0)]
         [BlubSerializer(typeof(ArrayWithIntPrefixSerializer))]
-        public NewMemberInfoDto[] Unk { get; set; }
+        public NewMemberInfoDto[] NewMembers { get; set; }
+
+        public ClubNewJoinMemberInfoAckMessage()
+        {
+            NewMembers = Array.Empty<NewMemberInfoDto>();
+        }
+
+        public ClubNewJoinMemberInfoAckMessage(NewMemberInfoDto[] newMembers)
+        {
+            NewMembers = newMembers;
+        }
     }
 
     [BlubContract]
