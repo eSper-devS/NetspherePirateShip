@@ -758,7 +758,8 @@ namespace Netsphere
         Accept = 1,
         Decline = 2,
         Kick = 3,
-        Ban = 4
+        Ban = 4,
+        Unban = 5
     }
 
     public enum ClubCommandResult : uint
@@ -769,5 +770,12 @@ namespace Netsphere
         MemberNotFound2 = 3,
         PermissionDenied = 4,
         NoMemberSelected = 5
+    }
+
+    public enum ClubLeaveReason : uint
+    {
+        Leave = 1,
+        Kick = 2,
+        Ban = 3
     }
 }

@@ -11,8 +11,8 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Netsphere.Common.Configuration;
 using Netsphere.Database;
-using Netsphere.Database.Auth;
 using Netsphere.Database.Game;
+using Netsphere.Server.Game.Services;
 using Z.EntityFramework.Plus;
 
 namespace Netsphere.Server.Game
@@ -115,13 +115,7 @@ namespace Netsphere.Server.Game
                 clan = _serviceProvider.GetRequiredService<Clan>();
                 clan.Initialize(this, clanEntity, new[]
                 {
-                    (
-                        clanMemberEntity,
-                        new AccountEntity
-                        {
-                            Id = (int)plr.Account.Id, Nickname = plr.Account.Nickname
-                        }
-                    )
+                    clanMemberEntity
                 });
                 _clans.Add(clan.Id, clan);
             }
@@ -166,26 +160,21 @@ namespace Netsphere.Server.Game
             _logger.Information("Loading clans...");
 
             using (var db = _databaseService.Open<GameContext>())
-            using (var authDb = _databaseService.Open<AuthContext>())
             {
                 var clanEntities = await db.Clans
                     .Include(x => x.Members)
                     .Include(x => x.Bans)
+                    .Include(x => x.Events)
                     .ToArrayAsync();
 
                 var clans = new List<Clan>();
                 foreach (var clanEntity in clanEntities)
                 {
-                    var memberIds = clanEntity.Members.Select(x => x.PlayerId).ToList();
-                    var accounts = await authDb.Accounts
-                        .Where(x => memberIds.Contains(x.Id))
-                        .ToArrayAsync();
-
                     var clan = _serviceProvider.GetRequiredService<Clan>();
                     clan.Initialize(
                         this,
                         clanEntity,
-                        clanEntity.Members.Select(x => (x, accounts.First(acc => acc.Id == x.PlayerId)))
+                        clanEntity.Members
                     );
                     clans.Add(clan);
                 }
@@ -250,12 +239,16 @@ namespace Netsphere.Server.Game
     public class Clan : IReadOnlyCollection<ClanMember>
     {
         private readonly DatabaseService _databaseService;
+        private readonly NicknameLookupService _nicknameLookupService;
         private readonly Dictionary<ulong, ClanMember> _members;
         private readonly HashSet<ulong> _bans;
+        private readonly List<ClanEventEntry> _events;
         private ulong _ownerId;
 
         public ClanMember this[ulong id] => GetMember(id);
         public IEnumerable<ClanMember> Members => _members.Values;
+        public IReadOnlyList<ClanEventEntry> Events => _events;
+        public IReadOnlyCollection<ulong> Bans => _bans;
 
         public event EventHandler<ClanMemberEventArgs> MemberConnected;
         public event EventHandler<ClanMemberEventArgs> MemberDisconnected;
@@ -300,15 +293,17 @@ namespace Netsphere.Server.Game
         public string Question5 { get; internal set; }
         public ClanMember Owner => GetMember(_ownerId);
 
-        public Clan(DatabaseService databaseService)
+        public Clan(DatabaseService databaseService, NicknameLookupService nicknameLookupService)
         {
             _databaseService = databaseService;
+            _nicknameLookupService = nicknameLookupService;
             _members = new Dictionary<ulong, ClanMember>();
             _bans = new HashSet<ulong>();
+            _events = new List<ClanEventEntry>();
         }
 
         internal void Initialize(ClanManager clanManager, ClanEntity entity,
-            IEnumerable<(ClanMemberEntity, AccountEntity)> members)
+            IEnumerable<ClanMemberEntity> members)
         {
             ClanManager = clanManager;
             Id = (uint)entity.Id;
@@ -331,8 +326,18 @@ namespace Netsphere.Server.Game
             foreach (var ban in entity.Bans.Select(x => (ulong)x.PlayerId))
                 _bans.Add(ban);
 
-            foreach (var (memberEntity, account) in members)
-                _members[(ulong)memberEntity.PlayerId] = new ClanMember(memberEntity, account.Nickname);
+            foreach (var eventEntity in entity.Events)
+            {
+                _events.Add(new ClanEventEntry(
+                    (ulong)eventEntity.PlayerId,
+                    (ClanEvent)eventEntity.Type,
+                    DateTimeOffset.FromUnixTimeSeconds(eventEntity.Date),
+                    eventEntity.Value1
+                ));
+            }
+
+            foreach (var memberEntity in members)
+                _members[(ulong)memberEntity.PlayerId] = new ClanMember(memberEntity, _nicknameLookupService);
         }
 
         public ClanMember GetMember(ulong id)
@@ -375,10 +380,11 @@ namespace Netsphere.Server.Game
             using (var db = _databaseService.Open<GameContext>())
             {
                 db.ClanMembers.Add(memberEntity);
+                AddEvent(db, IsPublic ? ClanEvent.Join : ClanEvent.Register, plr.Account.Id);
                 await db.SaveChangesAsync();
             }
 
-            _members.Add(plr.Account.Id, new ClanMember(memberEntity, plr.Account.Nickname));
+            _members.Add(plr.Account.Id, new ClanMember(memberEntity, _nicknameLookupService));
             plr.Clan = this;
             plr.ClanMember.Player = plr;
             plr.SendClubInfo();
@@ -405,6 +411,7 @@ namespace Netsphere.Server.Game
                 {
                     Id = member.Id
                 });
+                AddEvent(db, ClanEvent.Leave, plr.Account.Id);
                 await db.SaveChangesAsync();
             }
 
@@ -414,7 +421,7 @@ namespace Netsphere.Server.Game
             return true;
         }
 
-        public async Task<ClubCommandResult> Approve(ulong accountId)
+        public async Task<ClubCommandResult> Approve(Player moderator, ulong accountId)
         {
             var member = GetMember(accountId);
             if (member == null)
@@ -430,6 +437,8 @@ namespace Netsphere.Server.Game
                 {
                     State = (byte)member.State
                 });
+                AddEvent(db, ClanEvent.Approve, moderator.Account.Id, (long)accountId);
+                await db.SaveChangesAsync();
             }
 
             member.Player?.SendClubInfo();
@@ -437,7 +446,7 @@ namespace Netsphere.Server.Game
             return ClubCommandResult.Success;
         }
 
-        public async Task<ClubCommandResult> Decline(ulong accountId)
+        public async Task<ClubCommandResult> Decline(Player moderator, ulong accountId)
         {
             var member = GetMember(accountId);
             if (member == null)
@@ -452,6 +461,7 @@ namespace Netsphere.Server.Game
                 {
                     Id = member.Id
                 });
+                AddEvent(db, ClanEvent.Decline, moderator.Account.Id, (long)accountId);
                 await db.SaveChangesAsync();
             }
 
@@ -465,7 +475,7 @@ namespace Netsphere.Server.Game
             return ClubCommandResult.Success;
         }
 
-        public async Task<ClubCommandResult> Kick(ulong accountId)
+        public async Task<ClubCommandResult> Kick(Player moderator, ulong accountId)
         {
             var member = GetMember(accountId);
             if (member == null)
@@ -480,6 +490,7 @@ namespace Netsphere.Server.Game
                 {
                     Id = member.Id
                 });
+                AddEvent(db, ClanEvent.Kick, moderator.Account.Id, (long)accountId);
                 await db.SaveChangesAsync();
             }
 
@@ -493,7 +504,7 @@ namespace Netsphere.Server.Game
             return ClubCommandResult.Success;
         }
 
-        public async Task<ClubCommandResult> Ban(Player admin, ulong accountId)
+        public async Task<ClubCommandResult> Ban(Player moderator, ulong accountId)
         {
             var member = GetMember(accountId);
             if (member == null)
@@ -510,11 +521,9 @@ namespace Netsphere.Server.Game
                 });
                 db.ClanBans.Add(new ClanBanEntity
                 {
-                    ClanId = (int)Id,
-                    PlayerId = (int)accountId,
-                    BannedById = (int)admin.Account.Id,
-                    Date = DateTimeOffset.Now.ToUnixTimeSeconds()
+                    ClanId = (int)Id, PlayerId = (int)accountId, Date = DateTimeOffset.Now.ToUnixTimeSeconds()
                 });
+                AddEvent(db, ClanEvent.Ban, moderator.Account.Id, (long)accountId);
                 await db.SaveChangesAsync();
             }
 
@@ -529,9 +538,41 @@ namespace Netsphere.Server.Game
             return ClubCommandResult.Success;
         }
 
+        public async Task<ClubCommandResult> Unban(Player moderator, ulong accountId)
+        {
+            if (!_bans.Contains(accountId))
+                return ClubCommandResult.MemberNotFound;
+
+            using (var db = _databaseService.Open<GameContext>())
+            {
+                var clanId = (int)Id;
+                var id = (int)accountId;
+                await db.ClanBans.Where(x => x.ClanId == clanId && x.PlayerId == id).DeleteAsync();
+                AddEvent(db, ClanEvent.Unban, moderator.Account.Id, (long)accountId);
+                await db.SaveChangesAsync();
+            }
+
+            _bans.Remove(accountId);
+            return ClubCommandResult.Success;
+        }
+
         public Task Close()
         {
             return ClanManager.CloseClan(this);
+        }
+
+        private void AddEvent(GameContext db, ClanEvent clanEvent, ulong accountId, long value1 = 0)
+        {
+            var date = DateTimeOffset.Now;
+            _events.Add(new ClanEventEntry(accountId, clanEvent, date, value1));
+            db.ClanEvents.Add(new ClanEventEntity
+            {
+                ClanId = (int)Id,
+                PlayerId = (int)accountId,
+                Type = (byte)clanEvent,
+                Value1 = value1,
+                Date = date.ToUnixTimeSeconds()
+            });
         }
 
         #region IReadOnlyCollection
@@ -551,14 +592,14 @@ namespace Netsphere.Server.Game
 
     public class ClanMember
     {
-        private readonly string _cachedName;
+        private readonly NicknameLookupService _nicknameLookupService;
 
         public int Id { get; }
         public DateTimeOffset JoinDate { get; }
         public ClubMemberState State { get; internal set; }
         public ClubRole Role { get; internal set; }
         public ulong AccountId { get; }
-        public string Name => Player?.Account.Nickname ?? _cachedName;
+        public string Name => _nicknameLookupService.GetNickname(AccountId);
         public Player Player { get; internal set; }
         public DateTimeOffset LastLogin { get; internal set; }
         public string Answer1 { get; }
@@ -567,8 +608,9 @@ namespace Netsphere.Server.Game
         public string Answer4 { get; }
         public string Answer5 { get; }
 
-        public ClanMember(ClanMemberEntity entity, string name)
+        public ClanMember(ClanMemberEntity entity, NicknameLookupService nicknameLookupService)
         {
+            _nicknameLookupService = nicknameLookupService;
             Id = entity.Id;
             JoinDate = DateTimeOffset.FromUnixTimeSeconds(entity.JoinDate);
             State = (ClubMemberState)entity.State;
@@ -580,7 +622,22 @@ namespace Netsphere.Server.Game
             Answer3 = entity.Answer3;
             Answer4 = entity.Answer4;
             Answer5 = entity.Answer5;
-            _cachedName = name;
+        }
+    }
+
+    public class ClanEventEntry
+    {
+        public ulong AccountId { get; }
+        public ClanEvent Event { get; }
+        public long Value1 { get; }
+        public DateTimeOffset Date { get; }
+
+        public ClanEventEntry(ulong accountId, ClanEvent @event, DateTimeOffset date, long value1)
+        {
+            AccountId = accountId;
+            Event = @event;
+            Date = date;
+            Value1 = value1;
         }
     }
 }

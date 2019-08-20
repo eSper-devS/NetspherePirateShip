@@ -164,6 +164,7 @@ namespace Netsphere.Server.Game
                         .AddTransient<Clan>()
                         .AddCommands(typeof(Program).Assembly)
                         .AddService<IdGeneratorService>()
+                        .AddService<NicknameLookupService>()
                         .AddHostedServiceEx<ServerlistService>()
                         .AddHostedServiceEx<GameDataService>()
                         .AddHostedServiceEx<ChannelService>()
@@ -303,8 +304,6 @@ namespace Netsphere.Server.Game
                 .Function(dest => dest.MemberCount, src => src.Count);
 
             Mapper.Register<ClanMember, JoinWaiterInfoDto>();
-
-            Mapper.Register<ClanMember, NewMemberInfoDto>();
 
             Mapper.Compile(CompilationTypes.Source);
         }

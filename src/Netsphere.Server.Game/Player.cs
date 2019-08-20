@@ -11,6 +11,7 @@ using Netsphere.Database;
 using Netsphere.Database.Game;
 using Netsphere.Database.Helpers;
 using Netsphere.Network;
+using Netsphere.Network.Data.Club;
 using Netsphere.Network.Data.Game;
 using Netsphere.Network.Message.Club;
 using Netsphere.Network.Message.Game;
@@ -25,6 +26,7 @@ namespace Netsphere.Server.Game
         private readonly GameOptions _gameOptions;
         private readonly GameDataService _gameDataService;
         private readonly ClanManager _clanManager;
+        private readonly NicknameLookupService _nicknameLookupService;
         private byte _tutorialState;
         private uint _totalExperience;
         private uint _pen;
@@ -120,12 +122,14 @@ namespace Netsphere.Server.Game
         }
 
         public Player(ILogger<Player> logger, IOptions<GameOptions> gameOptions, GameDataService gameDataService,
-            CharacterManager characterManager, PlayerInventory inventory, ClanManager clanManager)
+            CharacterManager characterManager, PlayerInventory inventory, ClanManager clanManager,
+            NicknameLookupService nicknameLookupService)
         {
             _logger = logger;
             _gameOptions = gameOptions.Value;
             _gameDataService = gameDataService;
             _clanManager = clanManager;
+            _nicknameLookupService = nicknameLookupService;
             CharacterManager = characterManager;
             Inventory = inventory;
             CharacterStartPlayTime = new DateTimeOffset[3];
@@ -362,6 +366,59 @@ namespace Netsphere.Server.Game
         {
             Session.Send(new MoneyRefreshCashInfoAckMessage(PEN, AP));
             Session.Send(new MoenyRefreshCoinInfoAckMessage(Coins1, Coins2));
+        }
+
+        public void SendClanLeaveEvents()
+        {
+            if (Clan == null)
+                return;
+
+            var entries = Clan.Events
+                .Where(x => x.Event == ClanEvent.Leave && Clan.GetMember(x.AccountId) == null ||
+                            x.Event == ClanEvent.Kick && Clan.GetMember((ulong)x.Value1) == null ||
+                            x.Event == ClanEvent.Ban && Clan.Bans.Contains((ulong)x.Value1))
+                .GroupBy(x => x.Event == ClanEvent.Leave ? x.AccountId : (ulong)x.Value1)
+                .Select(x =>
+                {
+                    var eventEntry = x.OrderByDescending(_ => _.Date).First();
+                    var dto = new MemberLeftDto
+                    {
+                        AccountId = eventEntry.Event == ClanEvent.Leave ? (uint)eventEntry.AccountId : (uint)eventEntry.Value1,
+                        Date = eventEntry.Date
+                    };
+                    dto.Name = _nicknameLookupService.GetNickname(dto.AccountId);
+                    switch (eventEntry.Event)
+                    {
+                        case ClanEvent.Leave:
+                            dto.Reason = ClubLeaveReason.Leave;
+                            break;
+
+                        case ClanEvent.Kick:
+                            dto.Reason = ClubLeaveReason.Kick;
+                            break;
+
+                        case ClanEvent.Ban:
+                            dto.Reason = ClubLeaveReason.Ban;
+                            break;
+                    }
+
+                    return dto;
+                })
+                .ToArray();
+            Session.Send(new ClubUnjoinerListAckMessage(entries));
+        }
+
+        public void SendClanJoinEvents()
+        {
+            if (Clan == null)
+                return;
+
+            var newMembers = Clan
+                .Where(x => x.State == ClubMemberState.Joined)
+                .OrderByDescending(x => x.JoinDate)
+                .Select(x => x.Map<ClanMember, NewMemberInfoDto>())
+                .ToArray();
+            Session.Send(new ClubNewJoinMemberInfoAckMessage(newMembers));
         }
 
         /// <summary>

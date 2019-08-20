@@ -73,5 +73,6 @@ namespace Netsphere.Database.Game
 
         public List<ClanMemberEntity> Members { get; set; } = new List<ClanMemberEntity>();
         public List<ClanBanEntity> Bans { get; set; } = new List<ClanBanEntity>();
+        public List<ClanEventEntity> Events { get; set; } = new List<ClanEventEntity>();
     }
 }

@@ -25,6 +25,7 @@ namespace Netsphere.Database
         public DbSet<ClanEntity> Clans { get; set; }
         public DbSet<ClanMemberEntity> ClanMembers { get; set; }
         public DbSet<ClanBanEntity> ClanBans { get; set; }
+        public DbSet<ClanEventEntity> ClanEvents { get; set; }
 
         public GameContext(DbContextOptions<GameContext> options)
             : base(options)
@@ -78,8 +79,9 @@ namespace Netsphere.Database
                 .HasMany(x => x.Bans)
                 .WithOne(x => x.Clan);
 
-            modelBuilder.Entity<ClanBanEntity>()
-                .HasOne(x => x.BannedBy);
+            modelBuilder.Entity<ClanEntity>()
+                .HasMany(x => x.Events)
+                .WithOne(x => x.Clan);
         }
     }
 }

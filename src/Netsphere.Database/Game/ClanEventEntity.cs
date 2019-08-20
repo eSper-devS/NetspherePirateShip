@@ -3,8 +3,8 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Netsphere.Database.Game
 {
-    [Table("clan_bans")]
-    public class ClanBanEntity
+    [Table("clan_events")]
+    public class ClanEventEntity
     {
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
@@ -20,5 +20,11 @@ namespace Netsphere.Database.Game
 
         [Column]
         public long Date { get; set; }
+
+        [Column]
+        public byte Type { get; set; }
+
+        [Column]
+        public long Value1 { get; set; }
     }
 }

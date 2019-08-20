@@ -113,4 +113,16 @@ namespace Netsphere.Server.Game
         NameAlreadyExists,
         AlreadyInClan
     }
+
+    public enum ClanEvent
+    {
+        Register,
+        Join,
+        Leave,
+        Approve,
+        Decline,
+        Kick,
+        Ban,
+        Unban
+    }
 }
