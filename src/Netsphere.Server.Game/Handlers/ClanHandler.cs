@@ -7,6 +7,7 @@ using Netsphere.Network;
 using Netsphere.Network.Data.Club;
 using Netsphere.Network.Message.Club;
 using Netsphere.Server.Game.Rules;
+using Netsphere.Server.Game.Services;
 using ProudNet;
 
 namespace Netsphere.Server.Game.Handlers
@@ -15,15 +16,17 @@ namespace Netsphere.Server.Game.Handlers
         : IHandle<ClubSearchReqMessage>, IHandle<ClubInfoReqMessage>, IHandle<ClubNameCheckReqMessage>,
           IHandle<ClubCreateReqMessage>, IHandle<ClubCloseReqMessage>, IHandle<ClubJoinConditionInfoReqMessage>,
           IHandle<ClubJoinReqMessage>, IHandle<ClubUnjoinReqMessage>, IHandle<ClubJoinWaiterInfoReqMessage>,
-          IHandle<ClubAdminJoinCommandReqMessage>, IHandle<ClubNewJoinMemberInfoReqMessage>
+          IHandle<ClubAdminJoinCommandReqMessage>, IHandle<ClubNewJoinMemberInfoReqMessage>, IHandle<ClubUnjoinerListReqMessage>
     {
         private readonly ILogger _logger;
         private readonly ClanManager _clanManager;
+        private readonly NicknameLookupService _nicknameLookupService;
 
-        public ClanHandler(ILogger<ClanHandler> logger, ClanManager clanManager)
+        public ClanHandler(ILogger<ClanHandler> logger, ClanManager clanManager, NicknameLookupService nicknameLookupService)
         {
             _logger = logger;
             _clanManager = clanManager;
+            _nicknameLookupService = nicknameLookupService;
         }
 
         [Firewall(typeof(MustBeLoggedIn))]
@@ -38,7 +41,7 @@ namespace Netsphere.Server.Game.Handlers
                 ClanIcon = clan.Icon,
                 ClanName = clan.Name,
                 MemberCount = clan.Count(x => x.State == ClubMemberState.Joined),
-                OwnerName = clan.Owner.Name,
+                OwnerName = await _nicknameLookupService.GetNicknameAsync(clan.Owner.AccountId),
                 CreationDate = clan.CreationDate,
                 Area = clan.Area,
                 Activity = clan.Activity,
@@ -232,11 +235,12 @@ namespace Netsphere.Server.Game.Handlers
             switch (message.Command)
             {
                 case ClubCommand.Accept:
-                    result = await clan.Approve(message.AccountIds[0]);
+                    result = await clan.Approve(plr, message.AccountIds[0]);
+                    plr.SendClanJoinEvents();
                     break;
 
                 case ClubCommand.Decline:
-                    result = await clan.Decline(message.AccountIds[0]);
+                    result = await clan.Decline(plr, message.AccountIds[0]);
                     break;
 
                 case ClubCommand.Kick:
@@ -245,8 +249,9 @@ namespace Netsphere.Server.Game.Handlers
                     if (targetMember.Role <= plr.ClanMember.Role)
                         result = ClubCommandResult.PermissionDenied;
                     else
-                        result = await clan.Kick(message.AccountIds[0]);
+                        result = await clan.Kick(plr, message.AccountIds[0]);
 
+                    plr.SendClanLeaveEvents();
                     break;
                 }
 
@@ -258,8 +263,14 @@ namespace Netsphere.Server.Game.Handlers
                     else
                         result = await clan.Ban(plr, message.AccountIds[0]);
 
+                    plr.SendClanLeaveEvents();
                     break;
                 }
+
+                case ClubCommand.Unban:
+                    result = await clan.Unban(plr, message.AccountIds[0]);
+                    plr.SendClanLeaveEvents();
+                    break;
 
                 default:
                     plr.AddContextToLogger(_logger).Warning("Unknown join command={command}", message.Command);
@@ -285,12 +296,26 @@ namespace Netsphere.Server.Game.Handlers
                 return true;
             }
 
-            var newMembers = clan
-                .Where(x => x.State == ClubMemberState.Joined)
-                .OrderByDescending(x => x.JoinDate)
-                .Select(x => x.Map<ClanMember, NewMemberInfoDto>())
-                .ToArray();
-            session.Send(new ClubNewJoinMemberInfoAckMessage(newMembers));
+            plr.SendClanJoinEvents();
+            return true;
+        }
+
+        [Firewall(typeof(MustBeLoggedIn))]
+        [Firewall(typeof(MustBeInClan))]
+        public async Task<bool> OnHandle(MessageContext context, ClubUnjoinerListReqMessage message)
+        {
+            var session = context.GetSession<Session>();
+            var plr = session.Player;
+
+            if (plr.ClanMember.Role > ClubRole.Staff)
+            {
+                session.Send(new Network.Message.Game.ServerResultAckMessage(ServerResult.FailedToRequestTask));
+                return true;
+            }
+
+            plr.SendClanLeaveEvents();
+            return true;
+        }
             return true;
         }
     }
