@@ -39,11 +39,13 @@ namespace Netsphere.Server.Game
 
         protected virtual void OnPlayerJoined(Player plr)
         {
+            plr.OnChannelJoined(this);
             PlayerJoined?.Invoke(this, new ChannelEventArgs(this, plr));
         }
 
         protected virtual void OnPlayerLeft(Player plr)
         {
+            plr.OnChannelLeft(this);
             PlayerLeft?.Invoke(this, new ChannelEventArgs(this, plr));
         }
 

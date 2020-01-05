@@ -34,6 +34,7 @@ namespace Netsphere.Server.Game.Services
 
             _channelService.PlayerJoined += ChannelOnPlayerJoined;
             _channelService.PlayerLeft += ChannelOnPlayerLeft;
+            _playerManager.PlayerConnected += OnPlayerConnected;
             _playerManager.PlayerDisconnected += OnPlayerDisconnected;
         }
 
@@ -61,9 +62,9 @@ namespace Netsphere.Server.Game.Services
         {
             var plr = _playerManager[request.AccountId];
             if (plr == null || plr.Session.SessionId != request.SessionId)
-                return Task.FromResult(new ChatLoginResponse(false, null, 0));
+                return Task.FromResult(new ChatLoginResponse(false, null, 0, 0));
 
-            return Task.FromResult(new ChatLoginResponse(true, plr.Account, plr.TotalExperience));
+            return Task.FromResult(new ChatLoginResponse(true, plr.Account, plr.TotalExperience, plr.Clan?.Id ?? 0));
         }
 
         private Task<RelayLoginResponse> OnRelayLogin(RelayLoginRequest request)
@@ -97,7 +98,74 @@ namespace Netsphere.Server.Game.Services
         private async Task<ClanMemberListResponse> OnClanMemberList(ClanMemberListRequest request)
         {
             var clan = _clanManager[request.ClanId];
+            return new ClanMemberListResponse(GetClanMembers(clan));
+        }
 
+        private void ChannelOnPlayerJoined(object sender, ChannelEventArgs e)
+        {
+            _messageBus.PublishAsync(new ChannelPlayerJoinedMessage(e.Player.Account.Id, e.Channel.Id));
+            if (e.Player.Clan != null)
+            {
+                _messageBus.PublishAsync(new ClanMemberUpdateMessage(
+                    e.Player.Clan.Id,
+                    e.Player.Account.Id,
+                    ClubMemberPresenceState.Online
+                ));
+            }
+        }
+
+        private void ChannelOnPlayerLeft(object sender, ChannelEventArgs e)
+        {
+            _messageBus.PublishAsync(new ChannelPlayerLeftMessage(e.Player.Account.Id, e.Channel.Id));
+            if (e.Player.Clan != null)
+            {
+                _messageBus.PublishAsync(new ClanMemberUpdateMessage(
+                    e.Player.Clan.Id,
+                    e.Player.Account.Id,
+                    ClubMemberPresenceState.Online
+                ));
+            }
+        }
+
+        private void OnPlayerConnected(object sender, PlayerEventArgs e)
+        {
+            e.Player.RoomJoined += OnPlayerRoomJoined;
+            e.Player.RoomLeft += OnPlayerRoomLeft;
+        }
+
+        private void OnPlayerDisconnected(object sender, PlayerEventArgs e)
+        {
+            e.Player.RoomJoined -= OnPlayerRoomJoined;
+            e.Player.RoomLeft -= OnPlayerRoomLeft;
+            _messageBus.PublishAsync(new PlayerDisconnectedMessage(e.Player.Account.Id));
+        }
+
+        private void OnPlayerRoomJoined(object sender, RoomPlayerEventArgs e)
+        {
+            if (e.Player.Clan != null)
+            {
+                _messageBus.PublishAsync(new ClanMemberUpdateMessage(
+                    e.Player.Clan.Id,
+                    e.Player.Account.Id,
+                    ClubMemberPresenceState.Playing
+                ));
+            }
+        }
+
+        private void OnPlayerRoomLeft(object sender, RoomPlayerEventArgs e)
+        {
+            if (e.Player.Clan != null)
+            {
+                _messageBus.PublishAsync(new ClanMemberUpdateMessage(
+                    e.Player.Clan.Id,
+                    e.Player.Account.Id,
+                    ClubMemberPresenceState.Online
+                ));
+            }
+        }
+
+        private static ClanMemberInfo[] GetClanMembers(Clan clan)
+        {
             var members = Array.Empty<ClanMemberInfo>();
             if (clan != null)
             {
@@ -115,22 +183,7 @@ namespace Netsphere.Server.Game.Services
                 }).ToArray();
             }
 
-            return new ClanMemberListResponse(members);
-        }
-
-        private void ChannelOnPlayerJoined(object sender, ChannelEventArgs e)
-        {
-            _messageBus.PublishAsync(new ChannelPlayerJoinedMessage(e.Player.Account.Id, e.Channel.Id));
-        }
-
-        private void ChannelOnPlayerLeft(object sender, ChannelEventArgs e)
-        {
-            _messageBus.PublishAsync(new ChannelPlayerLeftMessage(e.Player.Account.Id, e.Channel.Id));
-        }
-
-        private void OnPlayerDisconnected(object sender, PlayerEventArgs e)
-        {
-            _messageBus.PublishAsync(new PlayerDisconnectedMessage(e.Player.Account.Id));
+            return members;
         }
     }
 }

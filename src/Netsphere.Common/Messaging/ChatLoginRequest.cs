@@ -21,16 +21,18 @@ namespace Netsphere.Common.Messaging
         public bool OK { get; set; }
         public Account Account { get; set; }
         public uint TotalExperience { get; set; }
+        public uint ClanId { get; set; }
 
         public ChatLoginResponse()
         {
         }
 
-        public ChatLoginResponse(bool ok, Account account, uint totalExperience)
+        public ChatLoginResponse(bool ok, Account account, uint totalExperience, uint clanId)
         {
             OK = ok;
             Account = account;
             TotalExperience = totalExperience;
+            ClanId = clanId;
         }
     }
 }

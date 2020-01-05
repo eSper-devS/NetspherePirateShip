@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using DotNetty.Transport.Channels;
 using ExpressMapper;
+using ExpressMapper.Extensions;
 using Foundatio.Caching;
 using Foundatio.Messaging;
 using Foundatio.Serializer;
@@ -49,7 +50,7 @@ namespace Netsphere.Server.Chat
             IPluginHost pluginHost = new MefPluginHost();
             pluginHost.Initialize(configuration, Path.Combine(baseDirectory, "plugins"));
 
-            ConfigureMapper();
+            ConfigureMapper(appOptions);
 
             hostBuilder
                 .ConfigureHostConfiguration(builder => builder.AddConfiguration(configuration))
@@ -160,7 +161,7 @@ namespace Netsphere.Server.Chat
             pluginHost.Dispose();
         }
 
-        private static void ConfigureMapper()
+        private static void ConfigureMapper(AppOptions appOptions)
         {
             Mapper.Register<Mail, NoteDto>()
                 .Function(dest => dest.ReadCount, src => src.IsNew ? 0 : 1)
@@ -187,6 +188,18 @@ namespace Netsphere.Server.Chat
             Mapper.Register<Player, UserDataDto>()
                 .Member(dest => dest.Nickname, src => src.Account.Nickname)
                 .Member(dest => dest.AccountId, src => src.Account.Id);
+
+            Mapper.Register<Player, PlayerLocationDto>()
+                .Function(dest => dest.ServerGroupId, src => appOptions.ServerList.Id)
+                .Function(dest => dest.GameServerId, src => appOptions.ServerList.Id << 8 | (byte)ServerType.Game)
+                .Function(dest => dest.ChatServerId, src => appOptions.ServerList.Id << 8 | (byte)ServerType.Chat)
+                .Function(dest => dest.ChannelId, src => src.Channel == null ? -1 : (int)src.Channel.Id)
+                .Function(dest => dest.RoomId, src => src.RoomId == 0 ? -1 : (int)src.RoomId)
+                .Member(dest => dest.ClanId, src => src.ClanId);
+
+            Mapper.Register<Player, PlayerInfoDto>()
+                .Function(dest => dest.Info, src => src.Map<Player, PlayerInfoShortDto>())
+                .Function(dest => dest.Location, src => src.Map<Player, PlayerLocationDto>());
 
             Mapper.Register<ClanMemberInfo, ClubMemberDto>();
 

@@ -60,7 +60,8 @@ namespace Netsphere.Server.Chat.Handlers
             }
 
             var response = await _messageBus.PublishRequestAsync<ChatLoginRequest, ChatLoginResponse>(
-                new ChatLoginRequest(message.AccountId, message.SessionId));
+                new ChatLoginRequest(message.AccountId, message.SessionId)
+            );
 
             if (!response.OK)
             {
@@ -105,21 +106,50 @@ namespace Netsphere.Server.Chat.Handlers
                 _playerManager.Add(session.Player);
             }
 
+            var plr = session.Player;
+
             session.Send(new LoginAckMessage(0));
             session.Send(new DenyListAckMessage(
-                session.Player.Ignore.Select(x => x.Map<Deny, DenyDto>()).ToArray()
+                plr.Ignore.Select(x => x.Map<Deny, DenyDto>()).ToArray()
             ));
             session.Send(new FriendListAckMessage(
-                session.Player.Friends.Select(x => x.Map<Friend, FriendDto>()).ToArray()
+                plr.Friends.Select(x => x.Map<Friend, FriendDto>()).ToArray()
             ));
             session.Send(new ChannelPlayerListAckMessage(
                 _playerManager.Where(x => x.Channel == null).Select(x => x.Map<Player, PlayerInfoShortDto>()).ToArray()
             ));
             _playerManager.Where(x => x.Channel == null).ForEach(x =>
-                x.Session.Send(new ChannelEnterPlayerAckMessage(session.Player.Map<Player, PlayerInfoShortDto>()))
+                x.Session.Send(new ChannelEnterPlayerAckMessage(plr.Map<Player, PlayerInfoShortDto>()))
             );
 
+            plr.ClanId = response.ClanId;
+            if (plr.ClanId != 0)
+                await SendClanUpdates(plr);
+
             return true;
+        }
+
+        private async Task SendClanUpdates(Player plr)
+        {
+            var clanMemberListResponse = await _messageBus
+                .PublishRequestAsync<ClanMemberListRequest, ClanMemberListResponse>(
+                    new ClanMemberListRequest(plr.ClanId)
+                );
+            plr.Session.Send(new ClubMemberListAckMessage(
+                clanMemberListResponse.Members
+                    .Select(x => x.Map<ClanMemberInfo, ClubMemberDto>())
+                    .ToArray()
+            ));
+
+            // Login from gameserver sends this
+            // but the player is not logged in on the chatserver at this point
+            // so trigger this again here
+            await _messageBus.PublishAsync(new ClanMemberUpdateMessage(
+                plr.ClanId,
+                plr.Account.Id,
+                ClubMemberPresenceState.Online,
+                true
+            ));
         }
     }
 }

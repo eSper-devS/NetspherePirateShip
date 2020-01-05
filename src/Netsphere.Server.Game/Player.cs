@@ -102,6 +102,10 @@ namespace Netsphere.Server.Game
         public event EventHandler<PlayerEventArgs> Disconnected;
         public event EventHandler<PlayerEventArgs> StateChanged;
         public event EventHandler<NicknameEventArgs> NicknameCreated;
+        public event EventHandler<ChannelEventArgs> ChannelJoined;
+        public event EventHandler<ChannelEventArgs> ChannelLeft;
+        public event EventHandler<RoomPlayerEventArgs> RoomJoined;
+        public event EventHandler<RoomPlayerEventArgs> RoomLeft;
 
         internal void OnDisconnected()
         {
@@ -119,6 +123,26 @@ namespace Netsphere.Server.Game
         protected internal virtual void OnNicknameCreated(string nickname)
         {
             NicknameCreated?.Invoke(this, new NicknameEventArgs(this, nickname));
+        }
+
+        protected internal virtual void OnChannelJoined(Channel channel)
+        {
+            ChannelJoined?.Invoke(this, new ChannelEventArgs(channel, this));
+        }
+
+        protected internal virtual void OnChannelLeft(Channel channel)
+        {
+            ChannelLeft?.Invoke(this, new ChannelEventArgs(channel, this));
+        }
+
+        protected internal virtual void OnRoomJoined(Room room)
+        {
+            RoomJoined?.Invoke(this, new RoomPlayerEventArgs(room, this));
+        }
+
+        protected internal virtual void OnRoomLeft(Room room)
+        {
+            RoomLeft?.Invoke(this, new RoomPlayerEventArgs(room, this));
         }
 
         public Player(ILogger<Player> logger, IOptions<GameOptions> gameOptions, GameDataService gameDataService,

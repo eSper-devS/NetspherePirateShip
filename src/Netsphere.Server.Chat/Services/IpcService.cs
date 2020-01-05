@@ -1,6 +1,7 @@
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using BlubLib.Collections.Generic;
 using ExpressMapper.Extensions;
 using Foundatio.Messaging;
 using Logging;
@@ -35,6 +36,7 @@ namespace Netsphere.Server.Chat.Services
             await _messageBus.SubscribeAsync<ChannelPlayerLeftMessage>(OnPlayerLeftChannel, _shutdown.Token);
             await _messageBus.SubscribeAsync<PlayerDisconnectedMessage>(OnPlayerDisconnected, _shutdown.Token);
             await _messageBus.SubscribeAsync<PlayerUpdateMessage>(OnPlayerUpdate, _shutdown.Token);
+            await _messageBus.SubscribeAsync<ClanMemberUpdateMessage>(OnClanMemberUpdate, _shutdown.Token);
         }
 
         public Task StopAsync(CancellationToken cancellationToken)
@@ -120,6 +122,38 @@ namespace Netsphere.Server.Chat.Services
             }
 
             return Task.CompletedTask;
+        }
+
+        private async Task OnClanMemberUpdate(ClanMemberUpdateMessage message)
+        {
+            var plr = _playerManager[message.AccountId];
+            if (plr == null)
+                return;
+
+            var update = new ClubMemberLoginStateAckMessage(message.PresenceState, message.AccountId);
+            _playerManager.Where(x => x.ClanId == message.ClanId).ForEach(x =>
+            {
+                x.Session.Send(update);
+                if (message.PresenceState != ClubMemberPresenceState.Offline)
+                    x.Session.Send(new PlayerInfoAckMessage(plr.Map<Player, PlayerInfoDto>()));
+
+                switch (message.PresenceState)
+                {
+                    case ClubMemberPresenceState.Online when message.LoggedIn:
+                        x.Session.Send(new ClubSystemMessageMessage(
+                            plr.Account.Id,
+                            $"<Chat Key=\"1\" Cnt=\"2\" Param1=\"{plr.Account.Nickname}\" Param2=\"1\"/>")
+                        );
+                        break;
+
+                    case ClubMemberPresenceState.Offline:
+                        x.Session.Send(new ClubSystemMessageMessage(
+                            plr.Account.Id,
+                            $"<Chat Key=\"1\" Cnt=\"2\" Param1=\"{plr.Account.Nickname}\" Param2=\"2\"/>")
+                        );
+                        break;
+                }
+            });
         }
     }
 }

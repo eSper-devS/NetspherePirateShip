@@ -4,12 +4,14 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Foundatio.Messaging;
 using Logging;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Netsphere.Common.Configuration;
+using Netsphere.Common.Messaging;
 using Netsphere.Database;
 using Netsphere.Database.Game;
 using Netsphere.Server.Game.Services;
@@ -240,6 +242,7 @@ namespace Netsphere.Server.Game
     {
         private readonly DatabaseService _databaseService;
         private readonly NicknameLookupService _nicknameLookupService;
+        private readonly IMessageBus _messageBus;
         private readonly Dictionary<ulong, ClanMember> _members;
         private readonly HashSet<ulong> _bans;
         private readonly List<ClanEventEntry> _events;
@@ -257,16 +260,32 @@ namespace Netsphere.Server.Game
 
         internal void OnMemberConnected(ClanMember member)
         {
+            _messageBus.PublishAsync(new ClanMemberUpdateMessage(
+                Id,
+                member.AccountId,
+                ClubMemberPresenceState.Online,
+                true
+            ));
             MemberConnected?.Invoke(this, new ClanMemberEventArgs(member));
         }
 
         internal void OnMemberDisconnected(ClanMember member)
         {
+            _messageBus.PublishAsync(new ClanMemberUpdateMessage(
+                Id,
+                member.AccountId,
+                ClubMemberPresenceState.Offline
+            ));
             MemberDisconnected?.Invoke(this, new ClanMemberEventArgs(member));
         }
 
         private void OnMemberJoined(ClanMember member)
         {
+            _messageBus.PublishAsync(new ClanMemberUpdateMessage(
+                Id,
+                member.AccountId,
+                ClubMemberPresenceState.Online
+            ));
             MemberJoined?.Invoke(this, new ClanMemberEventArgs(member));
         }
 
@@ -293,10 +312,11 @@ namespace Netsphere.Server.Game
         public string Question5 { get; internal set; }
         public ClanMember Owner => GetMember(_ownerId);
 
-        public Clan(DatabaseService databaseService, NicknameLookupService nicknameLookupService)
+        public Clan(DatabaseService databaseService, NicknameLookupService nicknameLookupService, IMessageBus messageBus)
         {
             _databaseService = databaseService;
             _nicknameLookupService = nicknameLookupService;
+            _messageBus = messageBus;
             _members = new Dictionary<ulong, ClanMember>();
             _bans = new HashSet<ulong>();
             _events = new List<ClanEventEntry>();

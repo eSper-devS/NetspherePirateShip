@@ -24,6 +24,7 @@ namespace Netsphere.Server.Chat
         public int Level { get; internal set; }
         public Channel Channel { get; internal set; }
         public uint RoomId { get; internal set; }
+        public uint ClanId { get; internal set; }
         public TeamId TeamId { get; internal set; }
         internal bool SentPlayerList { get; set; }
 

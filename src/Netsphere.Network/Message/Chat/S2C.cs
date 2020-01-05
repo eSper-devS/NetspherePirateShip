@@ -583,6 +583,16 @@ namespace Netsphere.Network.Message.Chat
 
         [BlubMember(1)]
         public string Unk2 { get; set; }
+
+        public ClubSystemMessageMessage()
+        {
+        }
+
+        public ClubSystemMessageMessage(ulong unk1, string unk2)
+        {
+            Unk1 = unk1;
+            Unk2 = unk2;
+        }
     }
 
     [BlubContract]
@@ -621,10 +631,20 @@ namespace Netsphere.Network.Message.Chat
     public class ClubMemberLoginStateAckMessage : IChatMessage
     {
         [BlubMember(0)]
-        public int Unk1 { get; set; }
+        public ClubMemberPresenceState PresenceState { get; set; }
 
         [BlubMember(1)]
-        public ulong Unk2 { get; set; }
+        public ulong AccountId { get; set; }
+
+        public ClubMemberLoginStateAckMessage()
+        {
+        }
+
+        public ClubMemberLoginStateAckMessage(ClubMemberPresenceState presenceState, ulong accountId)
+        {
+            PresenceState = presenceState;
+            AccountId = accountId;
+        }
     }
 
     [BlubContract]

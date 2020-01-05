@@ -637,8 +637,7 @@ namespace Netsphere
     {
         Offline = 0,
         Online = 1,
-        Playing = 2,
-        a = 3
+        Playing = 2
     }
 
     public enum ClubRole : uint

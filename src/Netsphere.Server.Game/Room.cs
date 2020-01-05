@@ -72,6 +72,7 @@ namespace Netsphere.Server.Game
 
         internal virtual void OnPlayerJoined(Player plr)
         {
+            plr.OnRoomJoined(this);
             PlayerJoined?.Invoke(this, new RoomPlayerEventArgs(this, plr));
 
             var team = TeamId.Neutral;
@@ -85,6 +86,7 @@ namespace Netsphere.Server.Game
 
         protected virtual void OnPlayerLeft(Player plr)
         {
+            plr.OnRoomLeft(this);
             PlayerLeft?.Invoke(this, new RoomPlayerEventArgs(this, plr));
             RoomManager.Channel.Broadcast(new RoomChangeRoomInfoAck2Message(this.Map<Room, Room2Dto>()));
             _messageBus.PublishAsync(new PlayerUpdateMessage(

@@ -15,7 +15,7 @@ namespace Netsphere.Network.Data.Chat
         public int RoomId { get; set; }
 
         [BlubMember(4)]
-        public int Unk { get; set; }
+        public int ClanId { get; set; }
 
         [BlubMember(5)]
         public int GameServerId { get; set; }
