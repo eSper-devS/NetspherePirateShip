@@ -14,6 +14,9 @@ using Netsphere.Common.Configuration;
 using Netsphere.Common.Messaging;
 using Netsphere.Database;
 using Netsphere.Database.Game;
+using Netsphere.Network.Message.Club;
+using Netsphere.Network.Message.Game;
+using Netsphere.Network.Message.GameRule;
 using Netsphere.Server.Game.Services;
 using Z.EntityFramework.Plus;
 
@@ -24,7 +27,6 @@ namespace Netsphere.Server.Game
         private readonly ILogger _logger;
         private readonly DatabaseService _databaseService;
         private readonly IOptionsMonitor<ClanOptions> _clanOptions;
-        private readonly PlayerManager _playerManager;
         private readonly IServiceProvider _serviceProvider;
         private Dictionary<uint, Clan> _clans;
 
@@ -37,11 +39,10 @@ namespace Netsphere.Server.Game
             _logger = logger;
             _databaseService = databaseService;
             _clanOptions = clanOptions;
-            _playerManager = playerManager;
             _serviceProvider = serviceProvider;
 
-            _playerManager.PlayerConnected += OnPlayerConnected;
-            _playerManager.PlayerDisconnected += OnPlayerDisconnected;
+            playerManager.PlayerConnected += OnPlayerConnected;
+            playerManager.PlayerDisconnected += OnPlayerDisconnected;
         }
 
         public Clan GetClan(uint id)
@@ -310,6 +311,7 @@ namespace Netsphere.Server.Game
         public string Question3 { get; internal set; }
         public string Question4 { get; internal set; }
         public string Question5 { get; internal set; }
+        public string Announcement { get; internal set; }
         public ClanMember Owner => GetMember(_ownerId);
 
         public Clan(DatabaseService databaseService, NicknameLookupService nicknameLookupService, IMessageBus messageBus)
@@ -341,6 +343,7 @@ namespace Netsphere.Server.Game
             Question3 = entity.Question3;
             Question4 = entity.Question4;
             Question5 = entity.Question5;
+            Announcement = entity.Announcement;
             _ownerId = (ulong)entity.OwnerId;
 
             foreach (var ban in entity.Bans.Select(x => (ulong)x.PlayerId))
@@ -358,6 +361,24 @@ namespace Netsphere.Server.Game
 
             foreach (var memberEntity in members)
                 _members[(ulong)memberEntity.PlayerId] = new ClanMember(memberEntity, _nicknameLookupService);
+        }
+
+        public async Task<Network.Message.Club.ClubInfoAckMessage> GetClubInfo()
+        {
+            return new Network.Message.Club.ClubInfoAckMessage
+            {
+                ClanId = Id,
+                ClanIcon = Icon,
+                ClanName = Name,
+                MemberCount = this.Count(x => x.State == ClubMemberState.Joined),
+                OwnerName = await _nicknameLookupService.GetNicknameAsync(Owner.AccountId),
+                CreationDate = CreationDate,
+                Area = Area,
+                Activity = Activity,
+                Class = Class,
+                Description = Description,
+                Announcement = Announcement
+            };
         }
 
         public ClanMember GetMember(ulong id)
@@ -576,9 +597,40 @@ namespace Netsphere.Server.Game
             return ClubCommandResult.Success;
         }
 
+        public async Task ChangeAnnouncement(string announcement)
+        {
+            using (var db = _databaseService.Open<GameContext>())
+            {
+                var id = (int)Id;
+                await db.Clans.Where(x => x.Id == id).UpdateAsync(x => new ClanEntity
+                {
+                    Announcement = announcement
+                });
+                Announcement = announcement;
+            }
+        }
+
         public Task Close()
         {
             return ClanManager.CloseClan(this);
+        }
+
+        public async Task Broadcast(IGameMessage message)
+        {
+            foreach (var session in Members.Where(x => x.Player != null).Select(x => x.Player.Session))
+                session.Send(message);
+        }
+
+        public async Task Broadcast(IGameRuleMessage message)
+        {
+            foreach (var session in Members.Where(x => x.Player != null).Select(x => x.Player.Session))
+                session.Send(message);
+        }
+
+        public async Task Broadcast(IClubMessage message)
+        {
+            foreach (var session in Members.Where(x => x.Player != null).Select(x => x.Player.Session))
+                session.Send(message);
         }
 
         private void AddEvent(GameContext db, ClanEvent clanEvent, ulong accountId, long value1 = 0)

@@ -777,4 +777,11 @@ namespace Netsphere
         Kick = 2,
         Ban = 3
     }
+
+    public enum ClubNoticeChangeResult : uint
+    {
+        Success = 0,
+        NotInClan = 1,
+        NoMatchFound = 2
+    }
 }

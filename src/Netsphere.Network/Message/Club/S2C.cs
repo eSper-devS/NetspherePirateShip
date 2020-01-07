@@ -142,7 +142,16 @@ namespace Netsphere.Network.Message.Club
     public class ClubAdminNoticeChangeAckMessage : IClubMessage
     {
         [BlubMember(0)]
-        public int Unk { get; set; }
+        public ClubNoticeChangeResult Result { get; set; }
+
+        public ClubAdminNoticeChangeAckMessage()
+        {
+        }
+
+        public ClubAdminNoticeChangeAckMessage(ClubNoticeChangeResult result)
+        {
+            Result = result;
+        }
     }
 
     [BlubContract]

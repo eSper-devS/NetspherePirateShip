@@ -16,7 +16,8 @@ namespace Netsphere.Server.Game.Handlers
         : IHandle<ClubSearchReqMessage>, IHandle<ClubInfoReqMessage>, IHandle<ClubNameCheckReqMessage>,
           IHandle<ClubCreateReqMessage>, IHandle<ClubCloseReqMessage>, IHandle<ClubJoinConditionInfoReqMessage>,
           IHandle<ClubJoinReqMessage>, IHandle<ClubUnjoinReqMessage>, IHandle<ClubJoinWaiterInfoReqMessage>,
-          IHandle<ClubAdminJoinCommandReqMessage>, IHandle<ClubNewJoinMemberInfoReqMessage>, IHandle<ClubUnjoinerListReqMessage>
+          IHandle<ClubAdminJoinCommandReqMessage>, IHandle<ClubNewJoinMemberInfoReqMessage>,
+          IHandle<ClubUnjoinerListReqMessage>, IHandle<ClubAdminNoticeChangeReqMessage>
     {
         private readonly ILogger _logger;
         private readonly ClanManager _clanManager;
@@ -34,20 +35,7 @@ namespace Netsphere.Server.Game.Handlers
         {
             var session = context.GetSession<Session>();
             var clan = _clanManager[message.ClubId];
-
-            session.Send(new ClubInfoAckMessage
-            {
-                ClanId = clan.Id,
-                ClanIcon = clan.Icon,
-                ClanName = clan.Name,
-                MemberCount = clan.Count(x => x.State == ClubMemberState.Joined),
-                OwnerName = await _nicknameLookupService.GetNicknameAsync(clan.Owner.AccountId),
-                CreationDate = clan.CreationDate,
-                Area = clan.Area,
-                Activity = clan.Activity,
-                Class = clan.Class,
-                Description = clan.Description
-            });
+            session.Send(await clan.GetClubInfo());
             return true;
         }
 
@@ -316,6 +304,24 @@ namespace Netsphere.Server.Game.Handlers
             plr.SendClanLeaveEvents();
             return true;
         }
+
+        [Firewall(typeof(MustBeLoggedIn))]
+        [Firewall(typeof(MustBeInClan))]
+        public async Task<bool> OnHandle(MessageContext context, ClubAdminNoticeChangeReqMessage message)
+        {
+            var session = context.GetSession<Session>();
+            var plr = session.Player;
+            var clan = plr.Clan;
+
+            if (plr.ClanMember.Role != ClubRole.Master)
+            {
+                session.Send(new ClubAdminNoticeChangeAckMessage(ClubNoticeChangeResult.NoMatchFound));
+                return true;
+            }
+
+            await clan.ChangeAnnouncement(message.Notice);
+            session.Send(new ClubAdminNoticeChangeAckMessage(ClubNoticeChangeResult.Success));
+            await clan.Broadcast(await clan.GetClubInfo());
             return true;
         }
     }
