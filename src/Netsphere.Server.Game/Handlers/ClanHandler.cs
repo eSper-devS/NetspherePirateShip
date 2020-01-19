@@ -17,7 +17,9 @@ namespace Netsphere.Server.Game.Handlers
           IHandle<ClubCreateReqMessage>, IHandle<ClubCloseReqMessage>, IHandle<ClubJoinConditionInfoReqMessage>,
           IHandle<ClubJoinReqMessage>, IHandle<ClubUnjoinReqMessage>, IHandle<ClubJoinWaiterInfoReqMessage>,
           IHandle<ClubAdminJoinCommandReqMessage>, IHandle<ClubNewJoinMemberInfoReqMessage>,
-          IHandle<ClubUnjoinerListReqMessage>, IHandle<ClubAdminNoticeChangeReqMessage>
+          IHandle<ClubUnjoinerListReqMessage>, IHandle<ClubAdminNoticeChangeReqMessage>,
+          IHandle<ClubAdminInfoModifyReqMessage>, IHandle<ClubAdminJoinConditionModifyReqMessage>,
+          IHandle<ClubAdminGradeChangeReqMessage>
     {
         private readonly ILogger _logger;
         private readonly ClanManager _clanManager;
@@ -127,7 +129,7 @@ namespace Netsphere.Server.Game.Handlers
 
             session.Send(new ClubJoinConditionInfoAckMessage
             {
-                JoinType = clan.IsPublic ? 1 : 2,
+                JoinType = clan.IsPublic ? 2 : 1,
                 RequiredLevel = clan.RequiredLevel,
                 Question1 = clan.Question1,
                 Question2 = clan.Question2,
@@ -322,6 +324,101 @@ namespace Netsphere.Server.Game.Handlers
             await clan.ChangeAnnouncement(message.Notice);
             session.Send(new ClubAdminNoticeChangeAckMessage(ClubNoticeChangeResult.Success));
             await clan.Broadcast(await clan.GetClubInfo());
+            return true;
+        }
+
+        [Firewall(typeof(MustBeLoggedIn))]
+        [Firewall(typeof(MustBeInClan))]
+        public async Task<bool> OnHandle(MessageContext context, ClubAdminInfoModifyReqMessage message)
+        {
+            var session = context.GetSession<Session>();
+            var plr = session.Player;
+            var clan = plr.Clan;
+
+            if (plr.ClanMember.Role != ClubRole.Master)
+            {
+                session.Send(new ClubAdminInfoModifyAckMessage(ClubAdminInfoModifyResult.NoMatchFound));
+                return true;
+            }
+
+            await clan.ChangeInfo(message.Area, message.Activity, message.Description);
+            session.Send(new ClubAdminInfoModifyAckMessage(ClubAdminInfoModifyResult.Success));
+            await clan.Broadcast(await clan.GetClubInfo());
+            return true;
+        }
+
+        [Firewall(typeof(MustBeLoggedIn))]
+        [Firewall(typeof(MustBeInClan))]
+        public async Task<bool> OnHandle(MessageContext context, ClubAdminJoinConditionModifyReqMessage message)
+        {
+            var session = context.GetSession<Session>();
+            var plr = session.Player;
+            var clan = plr.Clan;
+
+            if (plr.ClanMember.Role != ClubRole.Master)
+            {
+                session.Send(new ClubAdminJoinConditionModifyAckMessage(ClubAdminJoinConditionModifyResult.NoMatchFound));
+                return true;
+            }
+
+            await clan.ChangeJoinCondition(
+                message.JoinType == 2,
+                (byte)message.RequiredLevel,
+                message.Question1,
+                message.Question2,
+                message.Question3,
+                message.Question4,
+                message.Question5
+            );
+            session.Send(new ClubAdminJoinConditionModifyAckMessage(ClubAdminJoinConditionModifyResult.Success));
+            return true;
+        }
+
+        [Firewall(typeof(MustBeLoggedIn))]
+        [Firewall(typeof(MustBeInClan))]
+        public async Task<bool> OnHandle(MessageContext context, ClubAdminGradeChangeReqMessage message)
+        {
+            var session = context.GetSession<Session>();
+            var plr = session.Player;
+            var clan = plr.Clan;
+
+            if (plr.ClanMember.Role != ClubRole.Master)
+            {
+                session.Send(new ClubAdminGradeChangeAckMessage(ClubAdminChangeRoleResult.PermissionDenied));
+                return true;
+            }
+
+            foreach (var roleChange in message.Grades)
+            {
+                var member = clan.GetMember(roleChange.AccountId);
+                if (member == null)
+                {
+                    session.Send(new ClubAdminGradeChangeAckMessage(ClubAdminChangeRoleResult.MemberNotFound));
+                    return true;
+                }
+
+                if (member == plr.ClanMember ||
+                    member.Role == ClubRole.Master ||
+                    roleChange.Role == ClubRole.Master ||
+                    roleChange.Role < ClubRole.Master || roleChange.Role > ClubRole.BadManner)
+                {
+                    session.Send(new ClubAdminGradeChangeAckMessage(ClubAdminChangeRoleResult.CantChangeRank));
+                    return true;
+                }
+
+                if (member.Role <= plr.ClanMember.Role)
+                {
+                    session.Send(new ClubAdminGradeChangeAckMessage(ClubAdminChangeRoleResult.PermissionDenied));
+                    return true;
+                }
+
+                await member.ChangeRole(roleChange.Role);
+            }
+
+            session.Send(new ClubAdminGradeChangeAckMessage(
+                ClubAdminChangeRoleResult.Success,
+                message.Grades.Select(x => x.AccountId).ToArray()
+            ));
             return true;
         }
     }

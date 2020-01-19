@@ -9,6 +9,6 @@ namespace Netsphere.Network.Data.Club
         public ulong AccountId { get; set; }
 
         [BlubMember(1)]
-        public int Unk { get; set; }
+        public ClubRole Role { get; set; }
     }
 }

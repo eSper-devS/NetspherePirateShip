@@ -131,11 +131,26 @@ namespace Netsphere.Network.Message.Club
     public class ClubAdminGradeChangeAckMessage : IClubMessage
     {
         [BlubMember(0)]
-        public int Unk1 { get; set; }
+        public ClubAdminChangeRoleResult Result { get; set; }
 
         [BlubMember(1)]
         [BlubSerializer(typeof(ArrayWithIntPrefixSerializer))]
-        public ulong[] Unk2 { get; set; }
+        public ulong[] AccountIdsChanged { get; set; }
+
+        public ClubAdminGradeChangeAckMessage()
+        {
+        }
+
+        public ClubAdminGradeChangeAckMessage(ClubAdminChangeRoleResult result)
+            : this(result, Array.Empty<ulong>())
+        {
+        }
+
+        public ClubAdminGradeChangeAckMessage(ClubAdminChangeRoleResult result, ulong[] accountIdsChanged)
+        {
+            Result = result;
+            AccountIdsChanged = accountIdsChanged;
+        }
     }
 
     [BlubContract]
@@ -158,7 +173,16 @@ namespace Netsphere.Network.Message.Club
     public class ClubAdminInfoModifyAckMessage : IClubMessage
     {
         [BlubMember(0)]
-        public int Unk { get; set; }
+        public ClubAdminInfoModifyResult Result { get; set; }
+
+        public ClubAdminInfoModifyAckMessage()
+        {
+        }
+
+        public ClubAdminInfoModifyAckMessage(ClubAdminInfoModifyResult result)
+        {
+            Result = result;
+        }
     }
 
     [BlubContract]
@@ -186,7 +210,16 @@ namespace Netsphere.Network.Message.Club
     public class ClubAdminJoinConditionModifyAckMessage : IClubMessage
     {
         [BlubMember(0)]
-        public int Unk { get; set; }
+        public ClubAdminJoinConditionModifyResult Result { get; set; }
+
+        public ClubAdminJoinConditionModifyAckMessage()
+        {
+        }
+
+        public ClubAdminJoinConditionModifyAckMessage(ClubAdminJoinConditionModifyResult result)
+        {
+            Result = result;
+        }
     }
 
     [BlubContract]

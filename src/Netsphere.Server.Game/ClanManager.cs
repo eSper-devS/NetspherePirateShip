@@ -360,7 +360,7 @@ namespace Netsphere.Server.Game
             }
 
             foreach (var memberEntity in members)
-                _members[(ulong)memberEntity.PlayerId] = new ClanMember(memberEntity, _nicknameLookupService);
+                _members[(ulong)memberEntity.PlayerId] = new ClanMember(this, memberEntity, _nicknameLookupService);
         }
 
         public async Task<Network.Message.Club.ClubInfoAckMessage> GetClubInfo()
@@ -425,7 +425,7 @@ namespace Netsphere.Server.Game
                 await db.SaveChangesAsync();
             }
 
-            _members.Add(plr.Account.Id, new ClanMember(memberEntity, _nicknameLookupService));
+            _members.Add(plr.Account.Id, new ClanMember(this ,memberEntity, _nicknameLookupService));
             plr.Clan = this;
             plr.ClanMember.Player = plr;
             plr.SendClubInfo();
@@ -610,6 +610,59 @@ namespace Netsphere.Server.Game
             }
         }
 
+        public async Task ChangeInfo(ClubArea area, ClubActivity activity, string description)
+        {
+            using (var db = _databaseService.Open<GameContext>())
+            {
+                var id = (int)Id;
+                await db.Clans.Where(x => x.Id == id).UpdateAsync(x => new ClanEntity
+                {
+                    Area = (byte)area, Activity = (byte)activity, Description = description
+                });
+                Area = area;
+                Activity = activity;
+                Description = description;
+            }
+        }
+
+        public async Task ChangeJoinCondition(bool isPublic, byte requiredLevel,
+            string question1, string question2, string question3, string question4, string question5)
+        {
+            using (var db = _databaseService.Open<GameContext>())
+            {
+                var id = (int)Id;
+                await db.Clans.Where(x => x.Id == id).UpdateAsync(x => new ClanEntity
+                {
+                    IsPublic = isPublic,
+                    RequiredLevel = requiredLevel,
+                    Question1 = question1,
+                    Question2 = question2,
+                    Question3 = question3,
+                    Question4 = question4,
+                    Question5 = question5,
+                });
+                IsPublic = isPublic;
+                RequiredLevel = requiredLevel;
+                Question1 = question1;
+                Question2 = question2;
+                Question3 = question3;
+                Question4 = question4;
+                Question5 = question5;
+            }
+        }
+
+        public async Task ChangeRole(ClanMember member, ClubRole role)
+        {
+            using (var db = _databaseService.Open<GameContext>())
+            {
+                await db.ClanMembers.Where(x => x.Id == member.Id).UpdateAsync(x => new ClanMemberEntity
+                {
+                    Role = (byte)role
+                });
+                member.Role = role;
+            }
+        }
+
         public Task Close()
         {
             return ClanManager.CloseClan(this);
@@ -666,6 +719,7 @@ namespace Netsphere.Server.Game
     {
         private readonly NicknameLookupService _nicknameLookupService;
 
+        public Clan Clan { get; }
         public int Id { get; }
         public DateTimeOffset JoinDate { get; }
         public ClubMemberState State { get; internal set; }
@@ -680,8 +734,9 @@ namespace Netsphere.Server.Game
         public string Answer4 { get; }
         public string Answer5 { get; }
 
-        public ClanMember(ClanMemberEntity entity, NicknameLookupService nicknameLookupService)
+        public ClanMember(Clan clan, ClanMemberEntity entity, NicknameLookupService nicknameLookupService)
         {
+            Clan = clan;
             _nicknameLookupService = nicknameLookupService;
             Id = entity.Id;
             JoinDate = DateTimeOffset.FromUnixTimeSeconds(entity.JoinDate);
@@ -694,6 +749,11 @@ namespace Netsphere.Server.Game
             Answer3 = entity.Answer3;
             Answer4 = entity.Answer4;
             Answer5 = entity.Answer5;
+        }
+
+        public async Task ChangeRole(ClubRole role)
+        {
+            await Clan.ChangeRole(this, role);
         }
     }
 

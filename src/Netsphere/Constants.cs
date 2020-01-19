@@ -784,4 +784,29 @@ namespace Netsphere
         NotInClan = 1,
         NoMatchFound = 2
     }
+
+    public enum ClubAdminInfoModifyResult : uint
+    {
+        Success = 0,
+        NotInClan = 1,
+        NoMatchFound = 2
+    }
+
+    public enum ClubAdminJoinConditionModifyResult : uint
+    {
+        Success = 0,
+        NotInClan = 1,
+        NoMatchFound = 2
+    }
+
+    public enum ClubAdminChangeRoleResult : uint
+    {
+        Success = 0,
+        NotInClan = 1,
+        MemberNotFound = 2,
+        MemberNotFound2 = 3,
+        PermissionDenied = 4,
+        CantChangeRank = 5,
+        NothingChanged = 6
+    }
 }
