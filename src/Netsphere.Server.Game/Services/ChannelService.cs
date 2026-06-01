@@ -51,7 +51,8 @@ namespace Netsphere.Server.Game.Services
 
         public async Task StartAsync(CancellationToken cancellationToken)
         {
-            _logger.Information("Creating channels...");
+            //Disabled log to avoid filling console with too much stuff
+            //_logger.Information("Creating channels...");
 
             using (var db = _databaseService.Open<GameContext>())
             {
@@ -67,7 +68,8 @@ namespace Netsphere.Server.Game.Services
                     .ToImmutableDictionary(x => x.Id, x => x);
             }
 
-            _logger.Information("Created {Count} channels", _channels.Count);
+            //Disabled log to avoid filling console with too much stuff
+            //_logger.Information("Created {Count} channels", _channels.Count);
         }
 
         public Task StopAsync(CancellationToken cancellationToken)

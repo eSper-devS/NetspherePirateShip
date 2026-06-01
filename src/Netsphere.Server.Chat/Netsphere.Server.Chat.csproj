@@ -6,7 +6,10 @@
     <LangVersion>7.2</LangVersion>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <NoWarn>1998</NoWarn>
-  </PropertyGroup>
+    <OutputPath>..\..\Server\Chat\</OutputPath>
+  <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+</PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Foundatio" Version="7.1.1845" />
     <PackageReference Include="Foundatio.JsonNet" Version="7.1.1845" />

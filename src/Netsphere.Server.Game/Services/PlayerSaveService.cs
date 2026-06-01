@@ -63,7 +63,8 @@ namespace Netsphere.Server.Game.Services
 
         private async Task SavePlayers()
         {
-            _logger.Information("Saving players...");
+            //Disabled log to avoid filling console with too much stuff
+            //_logger.Information("Saving players...");
             using (var db = _databaseService.Open<GameContext>())
             {
                 foreach (var plr in _playerManager)

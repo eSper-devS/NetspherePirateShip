@@ -176,6 +176,78 @@ namespace Netsphere.Server.Game.Handlers
                 session.Player = _serviceProvider.GetRequiredService<Player>();
                 session.Player.Initialize(session, account, plr);
                 session.SessionId = message.SessionId;
+
+                var newPlayer = session.Player;
+                if (newPlayer.CharacterManager.Count == 0)
+                {
+                    logger.Information("New account we create a default char automatically and add basic items");
+                    //We create all of them to avoid forcing a relog to make second and third
+                    newPlayer.CharacterManager.Create(0, CharacterGender.Female, 0, 0, 0, 0, 0, 0);
+                    newPlayer.CharacterManager.Create(1, CharacterGender.Male, 0, 0, 0, 0, 0, 0);
+                    newPlayer.CharacterManager.Create(2, CharacterGender.Female, 0, 0, 0, 0, 0, 0);
+
+                    //logger.Information("Start items");
+                    var startingitems = new List<PlayerItem>();
+                    IEnumerable<StartItemEntity> startItems;
+                    using (var db2 = _databaseService.Open<GameContext>())
+                    {
+                        var securityLevel = (byte)newPlayer.Account.SecurityLevel;
+                        startItems = await db.StartItems.Where(x => x.RequiredSecurityLevel <= securityLevel).ToArrayAsync();
+                    }
+
+                    var items = new List<PlayerItem>();
+                    foreach (var startItem in startItems)
+                    {
+                        var item = _gameDataService.ShopItems.Values.First(group => group.GetItemInfo(startItem.ShopItemInfoId) != null);
+                        var itemInfo = item.GetItemInfo(startItem.ShopItemInfoId);
+
+                        if (itemInfo == null)
+                        {
+                            _logger.Warning("Cant find ShopItemInfo for Start item {startItemId} - Forgot to reload the cache?", startItem.Id);
+                            continue;
+                        }
+
+                        var price = itemInfo.PriceGroup.GetPrice(startItem.ShopPriceId);
+                        if (price == null)
+                        {
+                            _logger.Warning("Cant find ShopPrice for Start item {startItemId} - Forgot to reload the cache?", startItem.Id);
+                            continue;
+                        }
+
+                        var startingColor = startItem.Color;
+                        if (startingColor > item.ColorGroup)
+                        {
+                            _logger.Warning("Start item {startItemId} has an invalid color {color}", startItem.Id, startingColor);
+                            startingColor = 0;
+                        }
+
+                        var playerItem = newPlayer.Inventory.Create(
+                        itemInfo, price, 0, itemInfo.EffectGroup.Effects.Select(x => x.Effect).ToArray(), false);
+                        items.Add(playerItem);
+                    }
+
+                    session.Send(new RequitalGiveItemResultAckMessage(
+                    items.Select(x => new RequitalGiveItemResultDto(x.ItemNumber, 0)).ToArray()));
+
+                    await newPlayer.SendAccountInformation();
+
+                    var playerInventory = newPlayer.Inventory.ToArray();
+                    var character = newPlayer.CharacterManager[0];
+                    foreach (var inventoryItem in playerInventory)
+                        character.Equip(inventoryItem, 0);
+
+                    newPlayer.Account.Nickname = session.Player.Account.Username;
+                    using (var db2 = _databaseService.Open<AuthContext>())
+                    {
+                        var accountId = (long)newPlayer.Account.Id;
+                        await db2.Accounts.Where(x => x.Id == accountId).UpdateAsync(x => new AccountEntity
+                        {
+                            Nickname = newPlayer.Account.Nickname
+                        });
+                    }
+
+                    newPlayer.OnNicknameCreated(newPlayer.Account.Nickname);
+                }
             }
 
             _playerManager.Add(session.Player);

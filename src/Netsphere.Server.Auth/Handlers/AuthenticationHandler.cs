@@ -13,6 +13,7 @@ using Netsphere.Network.Message.Auth;
 using Netsphere.Server.Auth.Rules;
 using Netsphere.Server.Auth.Services;
 using ProudNet;
+using static Org.BouncyCastle.Math.EC.ECCurve;
 using Constants = Netsphere.Common.Constants;
 
 namespace Netsphere.Server.Auth.Handlers
@@ -58,16 +59,36 @@ namespace Netsphere.Server.Auth.Handlers
 
                 if (account == null)
                 {
-                    logger.Information("Wrong login");
-                    session.Send(new LoginEUAckMessage(AuthLoginResult.WrongLogin));
-                    return true;
-                }
+                        var (hash, salt) = PasswordHasher.Hash(message.Password);
 
-                if (!PasswordHasher.IsPasswordValid(message.Password, account.Password, account.Salt))
+                        account = new AccountEntity
+                        {
+                            Username = username,
+                            Password = hash,
+                            Salt = salt,
+                            SecurityLevel = (byte)SecurityLevel.User
+                        };
+
+                        db.Accounts.Add(account);
+                        await db.SaveChangesAsync();
+
+                        logger.Information("Auto-created account for {Username}", message.Username);
+
+                }
+                else
                 {
-                    logger.Information("Wrong login");
-                    session.Send(new LoginEUAckMessage(AuthLoginResult.WrongLogin));
-                    return true;
+                    if (!PasswordHasher.IsPasswordValid(message.Password, account.Password, account.Salt))
+                    {
+                            var (newHash, newSalt) = PasswordHasher.Hash(message.Password);
+
+                            account.Password = newHash;
+                            account.Salt = newSalt;
+
+                            db.Accounts.Update(account);
+                            await db.SaveChangesAsync();
+
+                            logger.Warning("Password auto-reset for {Username} (NoobMode)", message.Username);
+                    }
                 }
 
                 var now = DateTimeOffset.Now.ToUnixTimeSeconds();

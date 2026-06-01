@@ -69,12 +69,14 @@ namespace Netsphere.Server.Game.GameRules
 
             // Is atleast one player per team ready?
             var teams = TeamManager.Values;
-            return teams.All(team => team.Players.Any(plr => plr.IsReady || Room.Master == plr));
+            //return teams.All(team => team.Players.Any(plr => plr.IsReady || Room.Master == plr));
+            return true;
         }
 
         protected override bool HasEnoughPlayers()
         {
-            return TeamManager.Values.All(team => team.PlayersPlaying.Any());
+            //return TeamManager.Values.All(team => team.PlayersPlaying.Any());
+            return true;
         }
 
         protected override PlayerScore CreateScore(Player plr)

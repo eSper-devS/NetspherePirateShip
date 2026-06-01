@@ -104,7 +104,8 @@ namespace Netsphere.Server.Game.Services
 
         private void LoadCommands()
         {
-            _logger.Information("Loading commands...");
+            //Disabled log to avoid filling console with too much stuff
+            //_logger.Information("Loading commands...");
 
             var commands = new List<Command>();
 
@@ -140,7 +141,8 @@ namespace Netsphere.Server.Game.Services
             }
 
             _commands = commands.ToArray();
-            _logger.Information("Loaded {Count} commands", commands.Count);
+            //Disabled log to avoid filling console with too much stuff
+            //_logger.Information("Loaded {Count} commands", commands.Count);
         }
 
         private class Command

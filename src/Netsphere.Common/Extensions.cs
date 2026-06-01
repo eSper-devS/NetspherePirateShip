@@ -35,7 +35,8 @@ namespace Netsphere.Common
             where TRequest : MessageWithGuid
             where TResponse : MessageWithGuid
         {
-            var tcs = new TaskCompletionSource<TResponse>();
+            var tcs = new TaskCompletionSource<TResponse>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
             var cts = new CancellationTokenSource();
             request.Guid = Guid.NewGuid();
             await This.SubscribeAsync<TResponse>(x =>
@@ -57,7 +58,7 @@ namespace Netsphere.Common
                 throw new TimeoutException("Did not receive a response within 30 seconds");
             }
 
-            return tcs.Task.Result;
+            return await tcs.Task;
         }
     }
 

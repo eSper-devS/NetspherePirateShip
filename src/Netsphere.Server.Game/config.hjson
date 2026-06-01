@@ -19,8 +19,8 @@
     ConnectionStrings:
     {
       Redis: localhost
-      Auth: Server=localhost;Database=auth;Uid=root;Pwd=1234;SslMode=None;
-      Game: Server=localhost;Database=game;Uid=root;Pwd=1234;SslMode=None;
+      Auth: ./db/auth.db
+      Game: ./db/game.db
     }
     RunMigration: true
   }
@@ -36,7 +36,7 @@
     EnableTutorial: true
     EnableLicenseRequirement: true
     MaxLevel: 100
-    StartLevel: 0
+    StartLevel: 80
     StartPEN: 30000
     StartAP: 0
     StartCoins1: 0

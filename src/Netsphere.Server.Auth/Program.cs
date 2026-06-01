@@ -54,7 +54,15 @@ namespace Netsphere.Server.Auth
                         .Configure<AppOptions>(context.Configuration)
                         .Configure<DatabaseOptions>(context.Configuration.GetSection(nameof(AppOptions.Database)))
                         .AddSingleton<DatabaseService>()
-                        .AddDbContext<AuthContext>(x => x.UseMySql(appOptions.Database.ConnectionStrings.Auth))
+                        .AddDbContext<AuthContext>(x =>
+                        {
+                            var dbPath = appOptions.Database.ConnectionStrings.Auth;
+                            var dir = Path.GetDirectoryName(dbPath);
+
+                            if (!Directory.Exists(dir))
+                                Directory.CreateDirectory(dir);
+                            x.UseSqlite($"Data Source={dbPath}");
+                        })
                         .AddSingleton(redisConnectionMultiplexer)
                         .AddTransient<ISerializer>(x => new JsonNetSerializer(JsonConvert.DefaultSettings()))
                         .AddSingleton<ICacheClient, RedisCacheClient>()
@@ -105,26 +113,13 @@ namespace Netsphere.Server.Auth
             var host = hostBuilder.Build();
 
             var contexts = host.Services.GetRequiredService<IEnumerable<DbContext>>();
+
             foreach (var db in contexts)
             {
-                Log.Information("Checking database={Context}...", db.GetType().Name);
+                //Disabled log to avoid filling console with too much stuff
+                //Log.Information("Ensuring database exists={Context}...", db.GetType().Name);
 
-                using (db)
-                {
-                    if (db.Database.GetPendingMigrations().Any())
-                    {
-                        if (appOptions.Database.RunMigration)
-                        {
-                            Log.Information("Applying database={Context} migrations...", db.GetType().Name);
-                            db.Database.Migrate();
-                        }
-                        else
-                        {
-                            Log.Error("Database={Context} does not have all migrations applied", db.GetType().Name);
-                            return;
-                        }
-                    }
-                }
+                db.Database.EnsureCreated();
             }
 
             host.Services

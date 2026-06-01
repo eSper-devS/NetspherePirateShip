@@ -1,6 +1,8 @@
-using Hjson;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
+using Newtonsoft.Json;
+using Netsphere.Database.Configuration;
+using Hjson;
 using Netsphere.Common.Configuration;
 
 namespace Netsphere.Database
@@ -9,18 +11,18 @@ namespace Netsphere.Database
     {
         public GameContext CreateDbContext(string[] args)
         {
-            var connectionString =
-                HjsonValue.Load("config.hjson")
-                    ["Database"]
-                    [nameof(DatabaseOptions.ConnectionStrings)]
-                    [nameof(ConnectionStrings.Game)]
-                    .ToValue().ToString();
+            var config = HjsonValue.Load("config.hjson")
+                ["Database"]
+                [nameof(DatabaseOptions.ConnectionStrings)]
+                [nameof(ConnectionStrings.Game)]
+                .ToValue().ToString();
+            var dbPath = config;
 
-            return new GameContext(
-                new DbContextOptionsBuilder<GameContext>()
-                    .UseMySql(connectionString)
-                    .Options
-            );
+            var options = new DbContextOptionsBuilder<GameContext>()
+                .UseSqlite($"Data Source={dbPath}")
+                .Options;
+
+            return new GameContext(options);
         }
     }
 }

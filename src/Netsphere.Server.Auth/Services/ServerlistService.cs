@@ -69,7 +69,8 @@ namespace Netsphere.Server.Auth.Services
 
             try
             {
-                logger.Debug("Updating...");
+                //Disabled log to avoid filling console with too much stuff
+                //logger.Debug("Updating...");
                 var id = (uint)(message.Id << 8 | (byte)message.ServerType);
                 _servers[id] = new ServerInfo(new ServerInfoDto
                 {

@@ -60,13 +60,15 @@ namespace Netsphere.Server.Game.GameRules
 
             // Is atleast one player ready?
             var teams = TeamManager.Values;
-            return teams.Sum(team => team.Players.Count(plr => plr.IsReady)) > 0;
+            //return teams.Sum(team => team.Players.Count(plr => plr.IsReady)) > 0;
+            return true;
         }
 
         protected override bool HasEnoughPlayers()
         {
             // We need at least 2 players
-            return TeamManager.Values.Sum(team => team.PlayersPlaying.Count()) > 1;
+            //return TeamManager.Values.Sum(team => team.PlayersPlaying.Count()) > 1;
+            return true;
         }
 
         protected internal override Team GetWinnerTeam()

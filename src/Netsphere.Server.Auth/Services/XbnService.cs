@@ -39,7 +39,8 @@ namespace Netsphere.Server.Auth.Services
 
         public Task StartAsync(CancellationToken cancellationToken)
         {
-            _logger.Information("Generating xbn files...");
+            //Disabled log to avoid filling console with too much stuff
+            //_logger.Information("Generating xbn files...");
 
             foreach (XBNType xbnType in Enum.GetValues(typeof(XBNType)))
             {
@@ -120,7 +121,8 @@ namespace Netsphere.Server.Auth.Services
                 }
             }
 
-            _logger.Information("Cached {Count} xbn files...", _cache.Count);
+            //Disabled log to avoid filling console with too much stuff
+            //_logger.Information("Cached {Count} xbn files...", _cache.Count);
             return Task.CompletedTask;
 
             IList<string> GetNodeNames(XElement element)

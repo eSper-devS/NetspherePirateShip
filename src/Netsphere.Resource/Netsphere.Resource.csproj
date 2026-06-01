@@ -1,7 +1,10 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-  </PropertyGroup>
+    <OutputPath>..\..\Server\Resource\</OutputPath>
+  <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+</PropertyGroup>
   <ItemGroup>
     <PackageReference Include="BlubLib" Version="0.1.21" />
     <PackageReference Include="Portable.BouncyCastle" Version="1.8.1.3" />

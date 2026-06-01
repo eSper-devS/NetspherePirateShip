@@ -160,7 +160,8 @@ namespace Netsphere.Server.Game
 
         public async Task StartAsync(CancellationToken cancellationToken)
         {
-            _logger.Information("Loading clans...");
+            //Disabled log to avoid filling console with too much stuff
+            //_logger.Information("Loading clans...");
 
             using (var db = _databaseService.Open<GameContext>())
             {
@@ -185,7 +186,8 @@ namespace Netsphere.Server.Game
                 _clans = clans.ToDictionary(x => x.Id, x => x);
             }
 
-            _logger.Information("Loaded {Count} clans", _clans.Count);
+            //Disabled log to avoid filling console with too much stuff
+            //_logger.Information("Loaded {Count} clans", _clans.Count);
         }
 
         public Task StopAsync(CancellationToken cancellationToken)

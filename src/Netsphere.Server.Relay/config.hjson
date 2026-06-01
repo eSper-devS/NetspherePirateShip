@@ -12,7 +12,7 @@
     ConnectionStrings:
     {
       Redis: 127.0.0.1
-      Game: Server=127.0.0.1;Database=game;Uid=root;Pwd=1234;SslMode=None;
+      Game: ./db/game.db
     }
     RunMigration: true
   }

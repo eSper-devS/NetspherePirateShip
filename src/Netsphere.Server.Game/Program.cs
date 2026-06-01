@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Xml.Serialization;
 using DotNetty.Transport.Channels;
 using ExpressMapper;
 using Foundatio.Caching;
@@ -15,6 +16,7 @@ using Netsphere.Common;
 using Netsphere.Common.Configuration;
 using Netsphere.Common.Plugins;
 using Netsphere.Database;
+using Netsphere.Database.Game;
 using Netsphere.Network.Data.Club;
 using Netsphere.Network.Data.Game;
 using Netsphere.Network.Data.GameRule;
@@ -22,6 +24,8 @@ using Netsphere.Network.Message.Club;
 using Netsphere.Network.Message.Game;
 using Netsphere.Network.Message.GameRule;
 using Netsphere.Network.Serializers;
+using Netsphere.Resource.xml;
+using Netsphere.Resource.Xml;
 using Netsphere.Server.Game.GameRules;
 using Netsphere.Server.Game.Serializers;
 using Netsphere.Server.Game.Services;
@@ -130,8 +134,24 @@ namespace Netsphere.Server.Game
                             .GetSection(nameof(AppOptions.Game.Captain)))
                         .Configure<IdGeneratorOptions>(x => x.Id = 0)
                         .AddSingleton<DatabaseService>()
-                        .AddDbContext<AuthContext>(x => x.UseMySql(appOptions.Database.ConnectionStrings.Auth))
-                        .AddDbContext<GameContext>(x => x.UseMySql(appOptions.Database.ConnectionStrings.Game))
+                        .AddDbContext<AuthContext>(x =>
+                        {
+                            var dbPath = appOptions.Database.ConnectionStrings.Auth;
+                            var dir = Path.GetDirectoryName(dbPath);
+
+                            if (!Directory.Exists(dir))
+                                Directory.CreateDirectory(dir);
+                            x.UseSqlite($"Data Source={dbPath}");
+                        })
+                        .AddDbContext<GameContext>(x =>
+                        {
+                            var dbPath = appOptions.Database.ConnectionStrings.Game;
+                            var dir = Path.GetDirectoryName(dbPath);
+
+                            if (!Directory.Exists(dir))
+                                Directory.CreateDirectory(dir);
+                            x.UseSqlite($"Data Source={dbPath}");
+                        })
                         .AddSingleton(redisConnectionMultiplexer)
                         .AddTransient<ISerializer>(x => new JsonNetSerializer(JsonConvert.DefaultSettings()))
                         .AddSingleton<ICacheClient, RedisCacheClient>()
@@ -179,27 +199,16 @@ namespace Netsphere.Server.Game
             var host = hostBuilder.Build();
 
             var contexts = host.Services.GetRequiredService<IEnumerable<DbContext>>();
+
             foreach (var db in contexts)
             {
-                Log.Information("Checking database={Context}...", db.GetType().Name);
-
-                using (db)
-                {
-                    if (db.Database.GetPendingMigrations().Any())
-                    {
-                        if (appOptions.Database.RunMigration)
-                        {
-                            Log.Information("Applying database={Context} migrations...", db.GetType().Name);
-                            db.Database.Migrate();
-                        }
-                        else
-                        {
-                            Log.Error("Database={Context} does not have all migrations applied", db.GetType().Name);
-                            return;
-                        }
-                    }
-                }
+                //Disabled log to avoid filling console with too much stuff
+                //Log.Information("Ensuring database exists={Context}...", db.GetType().Name);
+                db.Database.EnsureCreated();
             }
+
+            var gameDb = host.Services.GetRequiredService<GameContext>();
+            InitializeDb(gameDb);
 
             host.Services
                 .GetRequiredService<IProudNetServerService>()
@@ -210,6 +219,151 @@ namespace Netsphere.Server.Game
             host.Run();
             host.Dispose();
             pluginHost.Dispose();
+        }
+
+        private static void InitializeDb(GameContext gameDb)
+        {
+            if (!gameDb.Channels.Any())
+            {
+                gameDb.Channels.Add(new ChannelEntity
+                {
+                    Name = "Default",
+                    Description = "Default channel",
+                    PlayerLimit = 100,
+                    Color = "FFFFFFFF",
+                    MinLevel = 0,
+                    MaxLevel = 100
+                });
+
+                gameDb.SaveChanges();
+            }
+
+            if (!gameDb.EffectGroups.Any())
+            {
+                gameDb.EffectGroups.Add(new ShopEffectGroupEntity
+                {
+                    Id = 1,
+                    Name = "None",
+                    PreviewEffect = 0
+                });
+                gameDb.SaveChanges();
+            }
+
+            if (!gameDb.PriceGroups.Any())
+            {
+                gameDb.PriceGroups.Add(new ShopPriceGroupEntity
+                {
+                    Id = 1,
+                    Name = "Free",
+                    PriceType = 2
+                });
+                gameDb.SaveChanges();
+            }
+
+            if (!gameDb.Prices.Any())
+            {
+                gameDb.Prices.Add(new ShopPriceEntity
+                {
+                    Id = 1,
+                    PriceGroupId = 1,
+                    PeriodType = 4,
+                    Period = 0,
+                    Price = 0,
+                    IsRefundable = true,
+                    Durability = -1,
+                    IsEnabled = true
+                });
+
+                gameDb.SaveChanges();
+            }
+
+            if (!gameDb.Items.Any())
+            {
+                var items = new List<Item>();
+
+                var skills = ItemParser.ParseItems("Game/xml/action.x7");
+                var weapons = ItemParser.ParseItems("Game/xml/_eu_weapon.x7");
+                var clothes = ItemParser.ParseItems("Game/xml/item.x7");
+
+                ProcessItems(gameDb, skills);
+                ProcessItems(gameDb, weapons);
+                ProcessItems(gameDb, clothes);
+            }
+
+            if (!gameDb.StartItems.Any())
+            {
+                gameDb.StartItems.Add(new StartItemEntity
+                {
+                    Id = 1,
+                    ShopItemInfoId = 25,
+                    ShopPriceId = 1,
+                    Color = 0,
+                    RequiredSecurityLevel = 0
+                });
+                gameDb.StartItems.Add(new StartItemEntity
+                {
+                    Id = 2,
+                    ShopItemInfoId = 116,
+                    ShopPriceId = 1,
+                    Color = 0,
+                    RequiredSecurityLevel = 0
+                });
+                gameDb.SaveChanges();
+            }
+        }
+
+        private static void ProcessItems(GameContext db, List<Item> items)
+        {
+            foreach (var item in items)
+            {
+                var id = long.Parse(item.Id);
+
+                if (!ItemLogic.TryGetType(item.Id, out var type))
+                    continue;
+
+                var exists = db.Items.Local.FirstOrDefault(x => x.Id == id);
+                if (exists != null)
+                    continue;
+
+                var tab = ItemLogic.CalculateTabInfo(type);
+
+                db.Items.Add(new ShopItemEntity
+                {
+                    Id = id,
+                    RequiredGender = (byte)item.Gender,
+                    RequiredLicense = 10,
+                    Colors = 10,
+                    UniqueColors = 0,
+                    RequiredLevel = 0,
+                    LevelLimit = 0,
+                    RequiredMasterLevel = 0,
+                    IsOneTimeUse = false,
+                    IsDestroyable = true,
+                    MainTab = (byte)tab.mainTab,
+                    SubTab = (byte)tab.subTab
+                });
+            }
+
+            db.SaveChanges();
+
+            foreach (var item in items)
+            {
+                var id = long.Parse(item.Id);
+
+                if (!db.Items.Any(x => x.Id == id))
+                    continue;
+
+                db.ItemInfos.Add(new ShopItemInfoEntity
+                {
+                    ShopItemId = id,
+                    PriceGroupId = 1,
+                    EffectGroupId = 1,
+                    DiscountPercentage = 0,
+                    IsEnabled = true
+                });
+            }
+
+            db.SaveChanges();
         }
 
         private static void ConfigureMapper()

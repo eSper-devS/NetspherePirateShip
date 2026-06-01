@@ -7,7 +7,7 @@
     ConnectionStrings:
     {
       Redis: localhost
-      Auth: Server=localhost;Database=auth;Uid=root;Pwd=1234;SslMode=None;
+      Auth: ./db/auth.db
     }
     RunMigration: true
   }
@@ -17,5 +17,5 @@
     Directory: logs
     Level: Debug
   }
-  DataDir: ../data
+  DataDir: ./Game
 }

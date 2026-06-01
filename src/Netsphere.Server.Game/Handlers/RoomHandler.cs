@@ -421,7 +421,8 @@ namespace Netsphere.Server.Game.Handlers
                     // The client kicks itself when afk is detected
                     if (message.AccountId != plr.Account.Id)
                         return Task.FromResult(true);
-
+                    //Avoid AFK Kick
+                    return Task.FromResult(true);
                     break;
 
                 default:

@@ -19,7 +19,8 @@ namespace Netsphere.Common.Plugins
         public void Initialize(IConfiguration configuration, string directory)
         {
             var logger = Log.ForContext<MefPluginHost>();
-            logger.Information("Loading plugins...");
+            //Disabled log to avoid filling console with too much stuff
+            //logger.Information("Loading plugins...");
 
             var conventions = new ConventionBuilder();
             conventions
@@ -41,7 +42,8 @@ namespace Netsphere.Common.Plugins
             foreach (var plugin in _plugins)
                 plugin.OnInitialize(configuration);
 
-            logger.Information("Loaded {Count} plugins", _plugins.Length);
+            //Disabled log to avoid filling console with too much stuff
+            //logger.Information("Loaded {Count} plugins", _plugins.Length);
         }
 
         public void OnConfigure(IServiceCollection services)

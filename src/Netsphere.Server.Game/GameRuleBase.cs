@@ -199,14 +199,16 @@ namespace Netsphere.Server.Game
         {
             var eventArgs = new CanStartGameHookEventArgs(this);
             s_preCanStartGameHook.Invoke(eventArgs);
-            return eventArgs.Result ?? CanStartGame();
+            //return eventArgs.Result ?? CanStartGame();
+            return true;
         }
 
         private bool _HasEnoughPlayers()
         {
             var eventArgs = new HasEnoughPlayersHookEventArgs(this);
             s_preHasEnoughPlayersHook.Invoke(eventArgs);
-            return eventArgs.Result ?? HasEnoughPlayers();
+            //return eventArgs.Result ?? HasEnoughPlayers();
+            return true;
         }
 
         private void OnPlayerJoining(object _, RoomPlayerEventArgs e)

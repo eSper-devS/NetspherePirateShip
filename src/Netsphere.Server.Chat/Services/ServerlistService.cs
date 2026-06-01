@@ -59,7 +59,8 @@ namespace Netsphere.Server.Chat.Services
 
             try
             {
-                _logger.Debug("Updating serverlist...");
+                //Disabled log to avoid filling console with too much stuff
+                //_logger.Debug("Updating serverlist...");
                 await _messageBus.PublishAsync(new ServerUpdateMessage
                 {
                     Id = _serverOptions.Id,

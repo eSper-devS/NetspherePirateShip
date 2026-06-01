@@ -1,0 +1,2 @@
+Add-Migration InitialCreate -Context AuthContext -Project Netsphere.Database -StartupProject Netsphere.Server.Auth
+Add-Migration InitialCreate -Context GameContext -Project Netsphere.Database -StartupProject Netsphere.Server.Game
